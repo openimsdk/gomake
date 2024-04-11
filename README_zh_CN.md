@@ -6,14 +6,19 @@
 
 ### 准备工作
 
-1. 将此目录下除README以外的6个文件复制到项目的根目录：
+1. 请将以下文件从当前目录复制到项目的根目录，注意除了`README`文件外，共有5个文件需要复制：
+    - `bootstrap.bat`
+    - `bootstrap.sh`
+    - `magefile.go`
+    - `magefile_unix.go`
+    - `magefile_windows.go`
 2. 项目根目录下需要包含三个目录：`cmd`、`tools`和`config`。
     - `cmd` 目录专门用于存放那些作为后台服务运行的应用的启动代码。
     - `tools`目录用于存放那些作为工具应用（不以后台服务形式运行）的启动代码。
     - `config`目录用于存放配置文件。
 3. `cmd`和`tools`目录可以包含多层多个子目录。对于包含`main`函数的`main package`文件，需以`main.go`命名。例如：
-    - `cmd/openim-rpc/openim-rpc-msg/main.go`
-    - `tools/check-free-memory/main.go`
+    - `cmd/microservice-test/main.go`
+    -  `tools/helloworld/main.go`
     - 所有代码都应属于同一个项目，子目录不应使用独立的`go.mod`和`go.sum`文件。
 
 ### 初始化项目
@@ -31,24 +36,20 @@
 
 ### 启动工具和服务
 
-1. 首先，编辑`start-config.yml`文件，指定服务和工具相关配置，例如：
+1. 执行完 `mage` 编译后，系统会自动生成 `start-config.yml` 文件，指定服务和工具相关配置，您可以对该文件进行编辑。例如：
 
     ```yaml
-    #cmd服务子目录名: 实例数
     serviceBinaries:
-        openim-rpc-msg: 2
-    
-    #tools工具子目录名
+      microservice-test: 1
     toolBinaries:
-        - check-free-memory
-    
+      - helloworld
     maxFileDescriptors: 10000
     ```
-
-    **注意：**服务和工具名与`cmd`和`tools`下的子目录名保持一致
-
-3. 执行`mage start`来启动服务和工具。
     
+    **注意：**确保服务名和工具名与 `cmd` 和 `tools` 目录下的子目录名称相匹配。服务名后的数字代表该服务启动的实例数量。
+    
+3. 执行`mage start`来启动服务和工具。
+   
     - 工具将以同步方式执行，如果工具执行失败（退出代码非零），则整个启动过程中断。
     - 服务将以异步方式启动。
 

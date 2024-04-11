@@ -17,7 +17,7 @@ func main() {
 
 	// Parse the flags
 	flag.Parse()
-	fmt.Printf("This is a microservice test. Program: %s, args: -i %d -c %s\n", os.Args[0], *index, *config)
+	fmt.Printf("This is a microservice-test. Program: %s, args: -i %d -c %s\n", os.Args[0], *index, *config)
 
 	// Generate a random port
 	rand.Seed(time.Now().UnixNano())
