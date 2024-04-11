@@ -12,6 +12,5 @@ func main() {
 	config := flag.String("c", "", "Configuration directory")
 	// Parse the flags
 	flag.Parse()
-	fmt.Println("this is hello world for tools")
-	fmt.Printf("Program name: %s, args: -i %d -c %s\n", os.Args[0], *index, *config)
+	fmt.Printf("This is a helloworld tool. Program: %s, args: -i %d -c %s\n", os.Args[0], *index, *config)
 }
