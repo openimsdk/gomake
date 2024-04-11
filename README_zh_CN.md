@@ -66,3 +66,16 @@
 
 ---
 
+### 截图
+
+- **Linux**
+  - mage编译: ![Compiling with mage on Linux](C:\Users\Administrator\GolandProjects\gomake\docs\images\linux-mage.jpg)
+  - mage启动工具和服务: ![Starting services with mage on Linux](C:\Users\Administrator\GolandProjects\gomake\docs\images\linux-mage-start.jpg)
+  - mage检测服务: ![Checking services on Linux](C:\Users\Administrator\GolandProjects\gomake\docs\images\linux-mage-check.jpg)
+  - mage停止服务: ![Stopping services on Linux](C:\Users\Administrator\GolandProjects\gomake\docs\images\linux-mage-stop.jpg)
+
+- **Windows**
+  - mage编译: ![Compiling with mage on Windows](C:\Users\Administrator\GolandProjects\gomake\docs\images\windows-mage.jpg)
+  - mage启动工具和服务: ![Starting services with mage on Windows](C:\Users\Administrator\GolandProjects\gomake\docs\images\windows-mage-start.jpg)
+  - mage检测服务: ![Checking services on Windows](C:\Users\Administrator\GolandProjects\gomake\docs\images\windows-mage-check.jpg)
+  - mage停止服务: ![Stopping services on Windows](C:\Users\Administrator\GolandProjects\gomake\docs\images\windows-mage-stop.jpg)
