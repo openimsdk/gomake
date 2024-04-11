@@ -1,15 +1,11 @@
 package mageutil
 
 import (
-	"bytes"
 	"fmt"
 	"gopkg.in/yaml.v3"
 	"io/ioutil"
-	"log"
 	"os"
-	"os/exec"
 	"runtime"
-	"strconv"
 )
 
 var (
@@ -27,30 +23,15 @@ type Config struct {
 func InitForSSC() {
 	yamlFile, err := ioutil.ReadFile("start-config.yml")
 	if err != nil {
-		fmt.Println("3333333333333333333333: ", err.Error())
-		pid := os.Getpid()
-
-		pidStr := strconv.Itoa(pid)
-
-		cmd := exec.Command("lsof", "-p", pidStr)
-		var out bytes.Buffer
-		cmd.Stdout = &out
-		err := cmd.Run()
-		if err != nil {
-			fmt.Println("Failed to run lsof:", err)
-			return
-		}
-		fmt.Println("Open files:", out.String())
-
-		log.Fatalf("error reading YAML file: %v", err)
+		fmt.Printf("error reading YAML file: %v", err)
+		os.Exit(1)
 	}
 
 	var config Config
 	err = yaml.Unmarshal(yamlFile, &config)
 	if err != nil {
-		fmt.Println("444444444444444444444")
-
-		log.Fatalf("error unmarshalling YAML: %v", err)
+		fmt.Printf("error unmarshalling YAML: %v", err)
+		os.Exit(1)
 	}
 
 	adjustedBinaries := make(map[string]int)
@@ -60,10 +41,7 @@ func InitForSSC() {
 		}
 		adjustedBinaries[binary] = count
 	}
-
 	serviceBinaries = adjustedBinaries
 	toolBinaries = config.ToolBinaries
 	MaxFileDescriptors = config.MaxFileDescriptors
-	fmt.Println("555555555555555555")
-
 }
