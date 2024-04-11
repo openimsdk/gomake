@@ -1,6 +1,7 @@
 package mageutil
 
 import (
+	"fmt"
 	"gopkg.in/yaml.v3"
 	"io/ioutil"
 	"log"
@@ -22,12 +23,15 @@ type Config struct {
 func InitForSSC() {
 	yamlFile, err := ioutil.ReadFile("start-config.yml")
 	if err != nil {
+		fmt.Println("3333333333333333333333")
 		log.Fatalf("error reading YAML file: %v", err)
 	}
 
 	var config Config
 	err = yaml.Unmarshal(yamlFile, &config)
 	if err != nil {
+		fmt.Println("444444444444444444444")
+
 		log.Fatalf("error unmarshalling YAML: %v", err)
 	}
 
@@ -42,4 +46,6 @@ func InitForSSC() {
 	serviceBinaries = adjustedBinaries
 	toolBinaries = config.ToolBinaries
 	MaxFileDescriptors = config.MaxFileDescriptors
+	fmt.Println("555555555555555555")
+
 }
