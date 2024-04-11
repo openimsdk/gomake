@@ -1,4 +1,3 @@
-```markdown
 # gomake User Guide
 
 **gomake** is a tool built on Mage that offers cross-platform and multi-architecture compilation support. It also simplifies the process of starting, stopping, and monitoring services.
@@ -64,4 +63,3 @@ If the service instance count is set to `n`, then `n` instances of the service w
 
 - Run `mage check` to check the status of services and the ports they are listening on.
 - Run `mage stop` to stop the services. This command will send a stop signal to the services.
-```
