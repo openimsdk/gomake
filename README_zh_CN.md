@@ -68,10 +68,9 @@
 
 ### 使用截图
 
-- **Linux** ![Compiling with mage on Linux](C:\Users\Administrator\GolandProjects\gomake\docs\images\linux-mages.jpg)
+- **Linux** ![Compiling with mage on Linux](docs/images/linux-mages.jpg)
 
 - **Windows**
 
-  ![Compiling with mage on Windows](C:\Users\Administrator\GolandProjects\gomake\docs\images\windows-mages.jpg)
-
+  ![Compiling with mage on Windows](docs/images/windows-mages.jpg)
   
