@@ -38,7 +38,9 @@ func StopAndCheckBinaries() {
 
 // StartToolsAndServices starts the process for tools and services.
 func StartToolsAndServices() {
+	fmt.Println("11111111")
 	InitForSSC()
+	fmt.Println("2222222222222")
 	PrintBlue("Starting tools primarily involves component verification and other preparatory tasks.")
 	if err := StartTools(); err != nil {
 		PrintRed("Some tools failed to start, details are as follows, abort start")
