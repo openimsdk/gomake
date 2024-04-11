@@ -69,7 +69,7 @@ If the service instance count is set to `n`, then `n` instances of the service w
 - **Linux**
   - Compiling with mage: ![Compiling with mage on Linux](docs/images/linux-mage.jpg)
   - Starting services with mage: ![Starting services with mage on Linux](docs/images/linux-mage-start.jpg)
-  - Checking services: ![Checking services on Linux](docs/images/linux-mge-check.jpg)
+  - Checking services: ![Checking services on Linux](docs/images/linux-mage-check.jpg)
   - Stopping services: ![Stopping services on Linux](docs/images/linux-mage-stop.jpg)
 
 - **Windows**
