@@ -23,7 +23,7 @@ type Config struct {
 func InitForSSC() {
 	yamlFile, err := ioutil.ReadFile("start-config.yml")
 	if err != nil {
-		fmt.Println("3333333333333333333333")
+		fmt.Println("3333333333333333333333: ", err.Error())
 		log.Fatalf("error reading YAML file: %v", err)
 	}
 
