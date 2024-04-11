@@ -68,8 +68,8 @@ If the service instance count is set to `n`, then `n` instances of the service w
 
 - **Linux** ![Compiling with mage on Linux](docs/images/linux-mages.jpg)
   
-  - **Windows**
+- **Windows**
   
   ![Compiling with mage on Windows](docs/images/windows-mages.jpg)
-
+  
   
