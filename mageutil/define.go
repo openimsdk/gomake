@@ -1,12 +1,15 @@
 package mageutil
 
 import (
+	"bytes"
 	"fmt"
 	"gopkg.in/yaml.v3"
 	"io/ioutil"
 	"log"
+	"os"
+	"os/exec"
 	"runtime"
-	"time"
+	"strconv"
 )
 
 var (
@@ -25,7 +28,20 @@ func InitForSSC() {
 	yamlFile, err := ioutil.ReadFile("start-config.yml")
 	if err != nil {
 		fmt.Println("3333333333333333333333: ", err.Error())
-		time.Sleep(1000 * time.Second)
+		pid := os.Getpid()
+
+		pidStr := strconv.Itoa(pid)
+
+		cmd := exec.Command("lsof", "-p", pidStr)
+		var out bytes.Buffer
+		cmd.Stdout = &out
+		err := cmd.Run()
+		if err != nil {
+			fmt.Println("Failed to run lsof:", err)
+			return
+		}
+		fmt.Println("Open files:", out.String())
+
 		log.Fatalf("error reading YAML file: %v", err)
 	}
 
