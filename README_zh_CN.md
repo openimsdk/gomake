@@ -1,6 +1,6 @@
-# mageutil使用指南
+# gomake使用指南
 
-**mageutil** 是基于 mage 构建的一个工具，它提供了跨平台和多架构的编译支持，同时也简化了服务的启动、停止、检测流程。
+**gomake** 是基于 mage 构建的一个工具，它提供了跨平台和多架构的编译支持，同时也简化了服务的启动、停止、检测流程。
 
 ## 使用指南
 
@@ -30,8 +30,8 @@
 
 - 执行`mage`或`mage build`来编译项目。
 - 编译完成后，二进制文件将生成在`_output/bin/platforms/<操作系统>/<架构>`目录下，其中二进制文件的命名规则为对应的`main.go`所在的目录名。例如：
-    - `_output/bin/platforms/linux/amd64/openim-rpc-msg`
-    - `_output/bin/tools/linux/amd64/check-free-memory`
+    - `_output/bin/platforms/linux/amd64/microservice-test`
+    - `_output/bin/tools/linux/amd64/helloworld`
     - **注意：** Windows平台的二进制文件会自动添加`.exe`扩展名。
 
 ### 启动工具和服务

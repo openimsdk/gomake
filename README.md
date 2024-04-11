@@ -30,8 +30,8 @@
 
 - Run `mage` or `mage build` to compile the project.
 - After compilation, binary files will be generated in the `_output/bin/platforms/<operating system>/<architecture>` directory, with the binary files named after the directory of the corresponding `main.go`. For example:
-  - `_output/bin/platforms/linux/amd64/openim-rpc-msg`
-  - `_output/bin/tools/linux/amd64/check-free-memory`
+  - `_output/bin/platforms/linux/amd64/microservice-test`
+  - `_output/bin/tools/linux/amd64/helloworld`
   - **Note:** Binary files on the Windows platform will automatically have a `.exe` extension added.
 
 ### Starting Tools and Services
@@ -63,3 +63,17 @@ If the service instance count is set to `n`, then `n` instances of the service w
 
 - Run `mage check` to check the status of services and the ports they are listening on.
 - Run `mage stop` to stop the services. This command will send a stop signal to the services.
+
+### Screenshots
+
+- **Linux**
+  - Compiling with mage: ![Compiling with mage on Linux](docs/images/linux-mage.jpg)
+  - Starting services with mage: ![Starting services with mage on Linux](docs/images/linux-mage-start.jpg)
+  - Checking services: ![Checking services on Linux](docs/images/linux-mge-check.jpg)
+  - Stopping services: ![Stopping services on Linux](docs/images/linux-mage-stop.jpg)
+
+- **Windows**
+  - Compiling with mage: ![Compiling with mage on Windows](docs/images/windows-mage.jpg)
+  - Starting services with mage: ![Starting services with mage on Windows](docs/images/windows-mage-start.jpg)
+  - Checking services: ![Checking services on Windows](docs/images/windows-mage-check.jpg)
+  - Stopping services: ![Stopping services on Windows](docs/images/windows-mage-stop.jpg)
