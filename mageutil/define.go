@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"log"
 	"runtime"
+	"time"
 )
 
 var (
@@ -24,6 +25,7 @@ func InitForSSC() {
 	yamlFile, err := ioutil.ReadFile("start-config.yml")
 	if err != nil {
 		fmt.Println("3333333333333333333333: ", err.Error())
+		time.Sleep(1000 * time.Second)
 		log.Fatalf("error reading YAML file: %v", err)
 	}
 
