@@ -43,7 +43,6 @@ func attemptCheckBinaries() error {
 	for i := 0; i < maxAttempts; i++ {
 		err = CheckBinariesStop()
 		if err == nil {
-			PrintGreen("All services have been stopped")
 			return nil
 		}
 		PrintYellow("Some services have not been stopped, details are as follows: " + err.Error())
