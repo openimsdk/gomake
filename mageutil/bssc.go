@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 )
 
 // CheckAndReportBinariesStatus checks the running status of all binary files and reports it.
@@ -28,12 +29,30 @@ func CheckAndReportBinariesStatus() {
 func StopAndCheckBinaries() {
 	InitForSSC()
 	KillExistBinaries()
-	err := CheckBinariesStop()
+	err := attemptCheckBinaries()
 	if err != nil {
-		PrintRed("Some services have not been stopped, details are as follows:" + err.Error())
+		PrintRed(err.Error())
 		return
 	}
 	PrintGreen("All services have been stopped")
+}
+
+func attemptCheckBinaries() error {
+	const maxAttempts = 15
+	var err error
+	for i := 0; i < maxAttempts; i++ {
+		err = CheckBinariesStop()
+		if err == nil {
+			PrintGreen("All services have been stopped")
+			return nil
+		}
+		PrintYellow("Some services have not been stopped, details are as follows: " + err.Error())
+		PrintYellow("Continue to wait for 1 second before checking again")
+		if i < maxAttempts-1 {
+			time.Sleep(1 * time.Second) // Sleep for 1 second before retrying
+		}
+	}
+	return fmt.Errorf("already waited for %d seconds, some services have still not stopped", maxAttempts)
 }
 
 // StartToolsAndServices starts the process for tools and services.
@@ -47,7 +66,7 @@ func StartToolsAndServices() {
 	PrintGreen("All tools executed successfully")
 
 	KillExistBinaries()
-	err := CheckBinariesStop()
+	err := attemptCheckBinaries()
 	if err != nil {
 		PrintRed("Some services running, details are as follows, abort start " + err.Error())
 		return

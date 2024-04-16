@@ -40,6 +40,11 @@ func PrintRed(message string) {
 	fmt.Printf("%s %s%s%s\n", currentTime, ColorRed, message, ColorReset)
 }
 
+func PrintYellow(message string) {
+	currentTime := time.Now().Format("[2006-01-02 15:04:05 MST]")
+	fmt.Printf("%s %s%s%s\n", currentTime, "\033[33m", message, "\033[0m")
+}
+
 func PrintRedNoTimeStamp(message string) {
 	fmt.Printf("%s%s%s\n", ColorRed, message, ColorReset)
 }
