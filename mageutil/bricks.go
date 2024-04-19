@@ -29,8 +29,7 @@ func StartBinaries() error {
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
 			if err := cmd.Start(); err != nil {
-				fmt.Fprintf(os.Stderr, "Failed to start %s with args %v: %v\n", binFullPath, args, err)
-				return err
+				return fmt.Errorf("failed to start %s with args %v: %v", binFullPath, args, err)
 			}
 		}
 	}
@@ -48,17 +47,14 @@ func StartTools() error {
 		cmd.Stderr = os.Stderr
 
 		if err := cmd.Start(); err != nil {
-			fmt.Printf("Failed to start %s with error: %v\n", toolFullPath, err)
-			return err
+			return fmt.Errorf("failed to start %s with error: %v", toolFullPath, err)
 		}
 
 		if err := cmd.Wait(); err != nil {
-			fmt.Printf("Failed to execute %s with exit code: %v\n", toolFullPath, err)
-			return err
+			return fmt.Errorf("failed to execute %s with exit code: %v", toolFullPath, err)
 		}
 		fmt.Printf("Starting %s successfully \n", cmd.String())
 	}
-
 	return nil
 }
 
