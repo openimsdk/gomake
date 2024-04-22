@@ -72,9 +72,13 @@ func CheckBinariesStop() error {
 
 	for binary := range serviceBinaries {
 		fullPath := GetBinFullPath(binary)
+		PrintBlue("CheckProcessNamesExist begin " + fullPath)
+
 		if CheckProcessNamesExist(fullPath) {
 			runningBinaries = append(runningBinaries, binary)
 		}
+		PrintBlue("CheckProcessNamesExist end " + fullPath)
+
 	}
 
 	if len(runningBinaries) > 0 {
@@ -89,11 +93,13 @@ func CheckBinariesRunning() error {
 	var errorMessages []string
 
 	for binary, expectedCount := range serviceBinaries {
+		PrintBlue("CheckBinariesRunning begins " + binary)
 		fullPath := GetBinFullPath(binary)
 		err := CheckProcessNames(fullPath, expectedCount)
 		if err != nil {
 			errorMessages = append(errorMessages, fmt.Sprintf("binary %s is not running as expected: %v", binary, err))
 		}
+		PrintBlue("CheckBinariesRunning end " + binary)
 	}
 
 	if len(errorMessages) > 0 {

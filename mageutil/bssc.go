@@ -28,7 +28,9 @@ func CheckAndReportBinariesStatus() {
 // StopAndCheckBinaries stops all binary processes and checks if they have all stopped.
 func StopAndCheckBinaries() {
 	InitForSSC()
+	PrintBlue("KillExistBinaries begins ")
 	KillExistBinaries()
+	PrintBlue("KillExistBinaries end ")
 	err := attemptCheckBinaries()
 	if err != nil {
 		PrintRed(err.Error())
