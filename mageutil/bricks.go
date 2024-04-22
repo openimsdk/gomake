@@ -60,10 +60,17 @@ func StartTools() error {
 
 // KillExistBinaries iterates over all binary files and kills their corresponding processes.
 func KillExistBinaries() {
+	//for binary := range serviceBinaries {
+	//	fullPath := GetBinFullPath(binary)
+	//	KillExistBinary(fullPath)
+	//}
+
+	var paths []string
 	for binary := range serviceBinaries {
 		fullPath := GetBinFullPath(binary)
-		KillExistBinary(fullPath)
+		paths = append(paths, fullPath)
 	}
+	BatchKillExistBinaries(paths)
 }
 
 // CheckBinariesStop checks if all binary files have stopped and returns an error if there are any binaries still running.

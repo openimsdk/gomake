@@ -142,6 +142,44 @@ func FindPIDsByBinaryPath(binaryPath string) ([]int, error) {
 	return pids, nil
 }
 
+// / KillExistBinary kills all processes matching any of the given binary file paths.
+func BatchKillExistBinaries(binaryPaths []string) {
+	processes, err := process.Processes()
+	if err != nil {
+		fmt.Printf("Failed to get processes: %v\n", err)
+		return
+	}
+
+	for _, p := range processes {
+		exePath, err := p.Exe()
+		if err != nil {
+			continue
+		}
+
+		for _, binaryPath := range binaryPaths {
+			if strings.Contains(strings.ToLower(exePath), strings.ToLower(binaryPath)) {
+				cmdline, err := p.Cmdline()
+				if err != nil {
+					fmt.Printf("Failed to get command line for process %d: %v\n", p.Pid, err)
+					continue
+				}
+
+				err = p.Terminate()
+				if err != nil {
+					err = p.Kill()
+					if err != nil {
+						fmt.Printf("Failed to kill process cmdline: %s, pid: %d, err: %v\n", cmdline, p.Pid, err)
+					} else {
+						fmt.Printf("Killed process cmdline: %s, pid: %d\n", cmdline, p.Pid)
+					}
+				} else {
+					fmt.Printf("Terminated process cmdline: %s, pid: %d\n", cmdline, p.Pid)
+				}
+			}
+		}
+	}
+}
+
 // KillExistBinary kills all processes matching the given binary file path.
 func KillExistBinary(binaryPath string) {
 	processes, err := process.Processes()
