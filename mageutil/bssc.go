@@ -18,7 +18,7 @@ func CheckAndReportBinariesStatus() {
 	if err != nil {
 		PrintRed("Some programs are not running properly:")
 		PrintRedNoTimeStamp(err.Error())
-		return
+		os.Exit(1)
 	}
 	PrintGreen("All services are running normally.")
 	PrintBlue("Display details of the ports listened to by the service:")
