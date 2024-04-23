@@ -99,10 +99,15 @@ func CheckBinariesStop() error {
 func CheckBinariesRunning() error {
 	var errorMessages []string
 
+	ps, err := FetchProcesses()
+	if err != nil {
+		return err
+	}
+
 	for binary, expectedCount := range serviceBinaries {
 		PrintBlue("CheckBinariesRunning begins " + binary)
 		fullPath := GetBinFullPath(binary)
-		err := CheckProcessNames(fullPath, expectedCount)
+		err := CheckProcessNames(fullPath, expectedCount, ps)
 		if err != nil {
 			errorMessages = append(errorMessages, fmt.Sprintf("binary %s is not running as expected: %v", binary, err))
 		}

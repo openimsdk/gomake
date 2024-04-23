@@ -19,35 +19,54 @@ func OsArch() string {
 	return fmt.Sprintf("%s/%s", os, arch)
 }
 
-func CheckProcessNames(processPath string, expectedCount int) error {
-	processes, err := process.Processes()
-	if err != nil {
-		return fmt.Errorf("failed to get processes: %v", err)
-	}
+//
+//func CheckProcessNames(processPath string, expectedCount int) error {
+//	processes, err := process.Processes()
+//	if err != nil {
+//		return fmt.Errorf("failed to get processes: %v", err)
+//	}
+//
+//	runningCount := 0
+//	for _, p := range processes {
+//		exePath, err := p.Exe()
+//		if err != nil {
+//			continue
+//		}
+//
+//		if strings.EqualFold(exePath, processPath) {
+//			runningCount++
+//
+//		}
+//	}
+//
+//	if runningCount == expectedCount {
+//		return nil
+//	} else {
+//		return fmt.Errorf("%s Expected %d processes, but %d running", processPath, expectedCount, runningCount)
+//	}
+//}
 
-	runningCount := 0
-	for _, p := range processes {
-		exePath, err := p.Exe()
-		if err != nil {
-			continue
-		}
+// CheckProcessNames checks if the number of processes running that match the specified path equals the expected count.
+func CheckProcessNames(processPath string, expectedCount int, processMap map[string]int) error {
+	// Normalize the input path
+	lowerProcessPath := strings.ToLower(processPath)
 
-		if strings.EqualFold(exePath, processPath) {
-			runningCount++
-
-		}
+	// Retrieve the count of running processes from the map
+	runningCount, exists := processMap[lowerProcessPath]
+	if !exists {
+		runningCount = 0 // No processes are running if the path isn't found in the map
 	}
 
 	if runningCount == expectedCount {
 		return nil
 	} else {
-		return fmt.Errorf("%s Expected %d processes, but %d running", processPath, expectedCount, runningCount)
+		return fmt.Errorf("%s expected %d processes, but %d running", processPath, expectedCount, runningCount)
 	}
 }
 
-// FetchProcesses returns a map of executable paths to process objects.
-func FetchProcesses() (map[string][]*process.Process, error) {
-	processMap := make(map[string][]*process.Process)
+// FetchProcesses returns a map of executable paths to their running count.
+func FetchProcesses() (map[string]int, error) {
+	processMap := make(map[string]int)
 	processes, err := process.Processes()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get processes: %v", err)
@@ -56,16 +75,16 @@ func FetchProcesses() (map[string][]*process.Process, error) {
 	for _, p := range processes {
 		exePath, err := p.Exe()
 		if err != nil {
-			// Skip processes where the executable path cannot be determined
-			continue
+			continue // Skip processes where the executable path cannot be determined
 		}
-		processMap[exePath] = append(processMap[exePath], p)
+		lowerExePath := strings.ToLower(exePath) // Normalize the path to lower case
+		processMap[lowerExePath]++
 	}
 
 	return processMap, nil
 }
 
-func CheckProcessInMap(processMap map[string][]*process.Process, processPath string) bool {
+func CheckProcessInMap(processMap map[string]int, processPath string) bool {
 	if _, exists := processMap[processPath]; exists {
 		return true
 	}
