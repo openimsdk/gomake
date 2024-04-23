@@ -60,11 +60,6 @@ func StartTools() error {
 
 // KillExistBinaries iterates over all binary files and kills their corresponding processes.
 func KillExistBinaries() {
-	//for binary := range serviceBinaries {
-	//	fullPath := GetBinFullPath(binary)
-	//	KillExistBinary(fullPath)
-	//}
-
 	var paths []string
 	for binary := range serviceBinaries {
 		fullPath := GetBinFullPath(binary)
@@ -77,11 +72,16 @@ func KillExistBinaries() {
 func CheckBinariesStop() error {
 	var runningBinaries []string
 
+	ps, err := FetchProcesses()
+	if err != nil {
+		return err
+	}
+
 	for binary := range serviceBinaries {
 		fullPath := GetBinFullPath(binary)
 		PrintBlue("CheckProcessNamesExist begin " + fullPath)
 
-		if CheckProcessNamesExist(fullPath) {
+		if CheckProcessInMap(ps, fullPath) {
 			runningBinaries = append(runningBinaries, binary)
 		}
 		PrintBlue("CheckProcessNamesExist end " + fullPath)
