@@ -114,20 +114,89 @@ func CheckProcessInMap(processMap map[string]int, processPath string) bool {
 //}
 
 // PrintBinaryPorts prints the ports listened by the process of a specified binary file along with its command line arguments.
-func PrintBinaryPorts(binaryPath string) {
-	pids, err := FindPIDsByBinaryPath(binaryPath)
+//func PrintBinaryPorts(binaryPath string) {
+//	pids, err := FindPIDsByBinaryPath(binaryPath)
+//	if err != nil {
+//		fmt.Println("Error finding PIDs:", err)
+//		return
+//	}
+//
+//	if len(pids) == 0 {
+//		fmt.Printf("No running processes found for binary: %s\n", binaryPath)
+//		return
+//	}
+//
+//	for _, pid := range pids {
+//
+//		proc, err := process.NewProcess(int32(pid))
+//		if err != nil {
+//			fmt.Printf("Failed to create process object for PID %d: %v\n", pid, err)
+//			continue
+//		}
+//
+//		cmdline, err := proc.Cmdline()
+//		if err != nil {
+//			fmt.Printf("Failed to get command line for PID %d: %v\n", pid, err)
+//			continue
+//		}
+//
+//		connections, err := net.ConnectionsPid("all", int32(pid))
+//		if err != nil {
+//			fmt.Printf("Error getting connections for PID %d: %v\n", pid, err)
+//			continue
+//		}
+//
+//		portsMap := make(map[string]struct{})
+//		for _, conn := range connections {
+//			if conn.Status == "LISTEN" {
+//				port := fmt.Sprintf("%d", conn.Laddr.Port)
+//				portsMap[port] = struct{}{}
+//			}
+//		}
+//
+//		if len(portsMap) == 0 {
+//			PrintGreen(fmt.Sprintf("Cmdline: %s, PID: %d is not listening on any ports.", cmdline, pid))
+//		} else {
+//			ports := make([]string, 0, len(portsMap))
+//			for port := range portsMap {
+//				ports = append(ports, port)
+//			}
+//			PrintGreen(fmt.Sprintf("Cmdline: %s, PID: %d is listening on ports: %s", cmdline, pid, strings.Join(ports, ", ")))
+//		}
+//	}
+//}
+
+// FindPIDsByBinaryPath returns a map of executable paths to slices of PIDs.
+func FindPIDsByBinaryPath() (map[string][]int, error) {
+	pidMap := make(map[string][]int)
+	processes, err := process.Processes()
 	if err != nil {
-		fmt.Println("Error finding PIDs:", err)
-		return
+		return nil, fmt.Errorf("failed to get processes: %v", err)
 	}
 
-	if len(pids) == 0 {
+	for _, proc := range processes {
+		exePath, err := proc.Exe()
+		if err != nil {
+			// Ignore processes where the executable path cannot be determined
+			continue
+		}
+
+		// Normalize the executable path for consistent mapping
+		normalizedPath := strings.ToLower(exePath)
+		pidMap[normalizedPath] = append(pidMap[normalizedPath], int(proc.Pid))
+	}
+
+	return pidMap, nil
+}
+func PrintBinaryPorts(binaryPath string, pidMap map[string][]int) {
+	binaryPath = strings.ToLower(binaryPath) // Normalize input for case-insensitivity
+	pids, exists := pidMap[binaryPath]
+	if !exists || len(pids) == 0 {
 		fmt.Printf("No running processes found for binary: %s\n", binaryPath)
 		return
 	}
 
 	for _, pid := range pids {
-
 		proc, err := process.NewProcess(int32(pid))
 		if err != nil {
 			fmt.Printf("Failed to create process object for PID %d: %v\n", pid, err)
@@ -166,27 +235,27 @@ func PrintBinaryPorts(binaryPath string) {
 	}
 }
 
-// FindPIDsByBinaryPath finds all matching process PIDs by binary path.
-func FindPIDsByBinaryPath(binaryPath string) ([]int, error) {
-	var pids []int
-	processes, err := process.Processes()
-	if err != nil {
-		return nil, err
-	}
-
-	for _, proc := range processes {
-		exePath, err := proc.Exe()
-		if err != nil {
-			continue
-		}
-
-		if strings.EqualFold(exePath, binaryPath) {
-			pids = append(pids, int(proc.Pid))
-		}
-	}
-
-	return pids, nil
-}
+//// FindPIDsByBinaryPath finds all matching process PIDs by binary path.
+//func FindPIDsByBinaryPath(binaryPath string) ([]int, error) {
+//	var pids []int
+//	processes, err := process.Processes()
+//	if err != nil {
+//		return nil, err
+//	}
+//
+//	for _, proc := range processes {
+//		exePath, err := proc.Exe()
+//		if err != nil {
+//			continue
+//		}
+//
+//		if strings.EqualFold(exePath, binaryPath) {
+//			pids = append(pids, int(proc.Pid))
+//		}
+//	}
+//
+//	return pids, nil
+//}
 
 // / KillExistBinary kills all processes matching any of the given binary file paths.
 //

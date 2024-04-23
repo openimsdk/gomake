@@ -22,7 +22,12 @@ func CheckAndReportBinariesStatus() {
 	}
 	PrintGreen("All services are running normally.")
 	PrintBlue("Display details of the ports listened to by the service:")
-	PrintListenedPortsByBinaries()
+	err = PrintListenedPortsByBinaries()
+	if err != nil {
+		PrintRed("PrintListenedPortsByBinaries error")
+		PrintRedNoTimeStamp(err.Error())
+		os.Exit(1)
+	}
 }
 
 // StopAndCheckBinaries stops all binary processes and checks if they have all stopped.
