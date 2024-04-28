@@ -315,6 +315,7 @@ func BatchKillExistBinaries(binaryPaths []string) {
 		}
 		lowerExePath := strings.ToLower(exePath)
 		exePathMap[lowerExePath] = append(exePathMap[lowerExePath], p)
+		fmt.Println("exePathMap ", "lowerExePath ", lowerExePath, " pid: ", p.Pid)
 	}
 
 	// Check each binary path against the map
@@ -322,6 +323,7 @@ func BatchKillExistBinaries(binaryPaths []string) {
 		lowerBinaryPath := strings.ToLower(binaryPath)
 		for exePath, procs := range exePathMap {
 			if strings.Contains(exePath, lowerBinaryPath) {
+				fmt.Println("lowerBinaryPath ", lowerBinaryPath, "exePath ", exePath)
 				for _, p := range procs {
 					cmdline, err := p.Cmdline()
 					if err != nil {
