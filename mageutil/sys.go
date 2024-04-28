@@ -79,6 +79,7 @@ func FetchProcesses() (map[string]int, error) {
 		}
 		lowerExePath := strings.ToLower(exePath) // Normalize the path to lower case
 		processMap[lowerExePath]++
+		fmt.Println("FetchProcesses ", "lowerExePath: ", lowerExePath, " pid: ", p.Pid)
 	}
 
 	return processMap, nil
