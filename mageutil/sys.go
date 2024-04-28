@@ -323,8 +323,9 @@ func BatchKillExistBinaries(binaryPaths []string) {
 		lowerBinaryPath := strings.ToLower(binaryPath)
 		for exePath, procs := range exePathMap {
 			if strings.Contains(exePath, lowerBinaryPath) {
-				fmt.Println("lowerBinaryPath ", lowerBinaryPath, "exePath ", exePath)
 				for _, p := range procs {
+					fmt.Println("lowerBinaryPath ", lowerBinaryPath, "exePath ", exePath, " pid ", p.Pid)
+
 					cmdline, err := p.Cmdline()
 					if err != nil {
 						fmt.Printf("Failed to get command line for process %d: %v\n", p.Pid, err)
