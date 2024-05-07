@@ -12,6 +12,10 @@ import (
 var Default = Build
 
 func Build() {
+	if _, err := os.Stat("start-config.yml"); err == nil {
+		InitForSSC()
+		KillExistBinaries()
+	}
 	platforms := os.Getenv("PLATFORMS")
 	if platforms == "" {
 		platforms = mageutil.DetectPlatform()
