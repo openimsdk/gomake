@@ -204,3 +204,18 @@ func compileDir(sourceDir, outputBase, platform string) []string {
 	}
 	return compiledDirs
 }
+
+func Build() {
+	if _, err := os.Stat("start-config.yml"); err == nil {
+		InitForSSC()
+		KillExistBinaries()
+	}
+	platforms := os.Getenv("PLATFORMS")
+	if platforms == "" {
+		platforms = DetectPlatform()
+	}
+	for _, platform := range strings.Split(platforms, " ") {
+		CompileForPlatform(platform)
+	}
+	PrintGreen("All binaries under cmd and tools were successfully compiled.")
+}
