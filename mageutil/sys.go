@@ -140,10 +140,14 @@ func BatchKillExistBinaries(binaryPaths []string) {
 			continue // Skip processes where the executable path cannot be determined
 		}
 		exePathMap[exePath] = append(exePathMap[exePath], p)
+		fmt.Println("exePath im map ", exePath)
 	}
 
 	for _, binaryPath := range binaryPaths {
+		fmt.Println("binaryPath  ", binaryPath)
+
 		if procs, found := exePathMap[binaryPath]; found {
+			fmt.Println("binaryPath  found ", binaryPath)
 			for _, p := range procs {
 				terminateAndKillProcess(p)
 			}
