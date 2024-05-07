@@ -127,6 +127,16 @@ func createStartConfigYML(cmdDirs, toolsDirs []string) {
 }
 
 func compileDir(sourceDir, outputBase, platform string) []string {
+	if info, err := os.Stat(sourceDir); err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		fmt.Printf("Failed read directory %s: %v\n", sourceDir, err)
+		os.Exit(1)
+	} else if !info.IsDir() {
+		fmt.Printf("Failed %s is not dir\n", sourceDir)
+		os.Exit(1)
+	}
 	var compiledDirs []string
 	var mu sync.Mutex
 	targetOS, targetArch := strings.Split(platform, "_")[0], strings.Split(platform, "_")[1]
