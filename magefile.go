@@ -33,5 +33,5 @@ func Check() {
 }
 
 func Protocol() {
-	util.Protocol()
+	mageutil.Protocol()
 }
