@@ -31,3 +31,7 @@ func Stop() {
 func Check() {
 	mageutil.CheckAndReportBinariesStatus()
 }
+
+func Protocol() {
+	util.Protocol()
+}
