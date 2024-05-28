@@ -16,7 +16,7 @@ import (
 
 func ensureToolsInstalled() error {
 	tools := map[string]string{
-		"protoc-gen-go": "https://github.com/golang/protobuf/tree/master/protoc-gen-go@latest",
+		"protoc-gen-go": "github.com/golang/protobuf/protoc-gen-go@latest",
 	}
 
 	// Setting GOBIN based on OS, Windows needs a different default path
