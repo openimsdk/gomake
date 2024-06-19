@@ -160,19 +160,35 @@ func Protocol() error {
 	}
 	return nil
 }
+
 func compileProtoFiles(basePath, dirName, moduleName string) error {
 	protoFile := filepath.Join(basePath, dirName, dirName+".proto")
 	outputDir := filepath.Join(basePath, dirName)
 	module := moduleName + "/pkg/protocol/" + dirName
-	args := []string{
-		"--go_out=plugins=grpc:" + outputDir,
-		"--go_opt=module=" + module,
-		protoFile,
+
+	// Include the base path and potentially other necessary paths
+	includePaths := []string{
+		basePath,                          // Current proto files directory
+		filepath.Join(basePath, "common"), // Common protos directory, if exists
 	}
+
+	// Build the args for the protoc command
+	args := []string{
+		"--proto_path=" + strings.Join(includePaths, ":"), // Setting multiple proto paths
+		"--go_out=plugins=grpc:" + outputDir,              // Output directory
+		"--go_opt=module=" + module,                       // Module name
+		protoFile,                                         // Proto file to compile
+	}
+
+	// Print which file is being compiled for clarity
 	fmt.Printf("Compiling %s...\n", protoFile)
+
+	// Execute the protoc command
 	if err := sh.Run("protoc", args...); err != nil {
 		return fmt.Errorf("failed to compile %s: %s", protoFile, err)
 	}
+
+	// Attempt to fix 'omitempty' in all generated .pb.go files within the directory
 	return fixOmitemptyInDirectory(outputDir)
 }
 
