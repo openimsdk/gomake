@@ -168,8 +168,7 @@ func compileProtoFiles(basePath, dirName, moduleName string) error {
 
 	// Include the base path and potentially other necessary paths
 	includePaths := []string{
-		basePath,                          // Current proto files directory
-		filepath.Join(basePath, "common"), // Common protos directory, if exists
+		basePath, // Current proto files directory
 	}
 
 	// Build the args for the protoc command
