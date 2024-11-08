@@ -22,6 +22,10 @@ func StartBinaries() error {
 	for binary, count := range serviceBinaries {
 		binFullPath := filepath.Join(OpenIMOutputHostBin, binary)
 		for i := 0; i < count; i++ {
+			if os.Getenv(DeploymentType) == KUBERNETES {
+				OpenIMOutputConfig = OpenIMK8sConfig
+				// OpenIMOutputConfig = "/config"
+			}
 			args := []string{"-i", strconv.Itoa(i), "-c", OpenIMOutputConfig}
 			cmd := exec.Command(binFullPath, args...)
 			fmt.Printf("Starting %s\n", cmd.String())

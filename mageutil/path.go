@@ -9,6 +9,7 @@ import (
 var (
 	OpenIMRoot               string
 	OpenIMOutputConfig       string
+	OpenIMK8sConfig          string
 	OpenIMOutput             string
 	OpenIMOutputTools        string
 	OpenIMOutputTmp          string
@@ -22,6 +23,12 @@ var (
 	OpenIMOutputHostBinTools string
 )
 
+const (
+	MountConfigFilePath = "CONFIG_PATH"
+	DeploymentType      = "DEPLOYMENT_TYPE"
+	KUBERNETES          = "kubernetes"
+)
+
 func init() {
 	currentDir, err := os.Getwd()
 	if err != nil {
@@ -29,6 +36,11 @@ func init() {
 	}
 
 	OpenIMRoot = currentDir
+
+	if os.Getenv(DeploymentType) == KUBERNETES {
+		kconfigPath := "/"
+		OpenIMK8sConfig = filepath.Join(kconfigPath, "config") + string(filepath.Separator)
+	}
 
 	OpenIMOutputConfig = filepath.Join(OpenIMRoot, "config") + string(filepath.Separator)
 	OpenIMOutput = filepath.Join(OpenIMRoot, "_output") + string(filepath.Separator)
@@ -49,6 +61,7 @@ func init() {
 
 	dirs := []string{
 		OpenIMOutputConfig,
+		OpenIMK8sConfig,
 		OpenIMOutput,
 		OpenIMOutputTools,
 		OpenIMOutputTmp,
