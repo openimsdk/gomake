@@ -241,7 +241,6 @@ func Build(binaries []string) {
 		KillExistBinaries()
 	}
 
-	InitForSSC()
 	platforms := os.Getenv("PLATFORMS")
 	if platforms == "" {
 		platforms = DetectPlatform()

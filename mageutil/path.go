@@ -61,7 +61,6 @@ func init() {
 
 	dirs := []string{
 		OpenIMOutputConfig,
-		OpenIMK8sConfig,
 		OpenIMOutput,
 		OpenIMOutputTools,
 		OpenIMOutputTmp,
