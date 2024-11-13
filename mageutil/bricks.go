@@ -44,6 +44,11 @@ func StartBinaries() error {
 func StartTools() error {
 	for _, tool := range toolBinaries {
 		toolFullPath := GetToolFullPath(tool)
+
+		if os.Getenv(DeploymentType) == KUBERNETES {
+			OpenIMOutputConfig = OpenIMK8sConfig
+		}
+
 		cmd := exec.Command(toolFullPath, "-c", OpenIMOutputConfig)
 		fmt.Printf("Starting %s\n", cmd.String())
 		cmd.Dir = OpenIMOutputHostBinTools

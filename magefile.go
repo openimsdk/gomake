@@ -4,14 +4,26 @@
 package main
 
 import (
-	"github.com/openimsdk/gomake/mageutil"
+	"flag"
 	"os"
+
+	"github.com/openimsdk/gomake/mageutil"
 )
 
 var Default = Build
 
+// Build support specifical binary build.
+//
+// Example: `mage build openim-api openim-rpc-user seq`
 func Build() {
-	mageutil.Build()
+	flag.Parse()
+
+	bin := flag.Args()
+	if len(bin) != 0 {
+		bin = bin[1:]
+	}
+
+	mageutil.Build(bin)
 }
 
 func Start() {
