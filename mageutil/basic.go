@@ -287,10 +287,10 @@ func getBinaries(binaries []string) []string {
 		for _, bin := range binaries {
 			fullPath := filepath.Join(prefix, bin) // e.g., "cmd/openim-rpc/openim-rpc-user" or "tools/seq"
 			allBinaries = append(allBinaries, fullPath)
-			PrintBlue(fmt.Sprintf("Discovered binary: %s", fullPath))
+			// PrintBlue(fmt.Sprintf("Discovered binary: %s", fullPath))
 		}
 
-		PrintBlue(fmt.Sprintf("Found binaries in %s: %v", baseDir, binaries))
+		// PrintBlue(fmt.Sprintf("Found binaries in %s: %v", baseDir, binaries))
 	}
 
 	return allBinaries
@@ -331,7 +331,7 @@ func getSubDirectoriesBFS(baseDir string) ([]string, error) {
 			mu.Lock()
 			subDirs = append(subDirs, relPath)
 			mu.Unlock()
-			PrintBlue(fmt.Sprintf("Added binary directory: %s", relPath))
+			// PrintBlue(fmt.Sprintf("Added binary directory: %s", relPath))
 			continue
 		}
 
