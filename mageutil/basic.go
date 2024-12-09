@@ -90,11 +90,14 @@ func StartToolsAndServices() {
 func CompileForPlatform(platform string, compileBinaries []string) {
 	var cmdBinaries, toolsBinaries []string
 
+	toolsPrefix := filepath.Join("tools", "")
+	cmdPrefix := filepath.Join("cmd", "")
+
 	for _, binary := range compileBinaries {
-		if strings.HasPrefix(binary, "tools/") {
-			toolsBinaries = append(toolsBinaries, strings.TrimPrefix(binary, "tools/"))
-		} else if strings.HasPrefix(binary, "cmd/") {
-			cmdBinaries = append(cmdBinaries, strings.TrimPrefix(binary, "cmd/"))
+		if strings.HasPrefix(binary, toolsPrefix) {
+			toolsBinaries = append(toolsBinaries, strings.TrimPrefix(binary, toolsPrefix))
+		} else if strings.HasPrefix(binary, cmdPrefix) {
+			cmdBinaries = append(cmdBinaries, strings.TrimPrefix(binary, cmdPrefix))
 		} else {
 			PrintYellow(fmt.Sprintf("Binary %s does not have a valid prefix. Skipping...", binary))
 		}
