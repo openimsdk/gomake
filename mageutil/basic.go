@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/magefile/mage/sh"
@@ -146,6 +148,27 @@ func createStartConfigYML(cmdDirs, toolsDirs []string) {
 	PrintGreen("start-config.yml created successfully.")
 }
 
+func getMainFile(binaryPath string) (string, error) {
+	var retPath string
+	err := filepath.Walk(binaryPath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			return nil
+		}
+		if filepath.Base(path) != "main.go" {
+			return nil
+		}
+		retPath = path
+		return nil
+	})
+	if err != nil {
+		return "", err
+	}
+	return retPath, nil
+}
+
 func compileDir(sourceDir, outputBase, platform string, compileBinaries []string) []string {
 	if info, err := os.Stat(sourceDir); err != nil {
 		if os.IsNotExist(err) {
@@ -157,9 +180,6 @@ func compileDir(sourceDir, outputBase, platform string, compileBinaries []string
 		fmt.Printf("Failed %s is not dir\n", sourceDir)
 		os.Exit(1)
 	}
-
-	var compiledDirs []string
-	var mu sync.Mutex
 	targetOS, targetArch := strings.Split(platform, "_")[0], strings.Split(platform, "_")[1]
 	outputDir := filepath.Join(outputBase, targetOS, targetArch)
 
@@ -167,75 +187,149 @@ func compileDir(sourceDir, outputBase, platform string, compileBinaries []string
 		fmt.Printf("Failed to create directory %s: %v\n", outputDir, err)
 		os.Exit(1)
 	}
+	cpuNum := runtime.GOMAXPROCS(0)
+	if cpuNum <= 0 {
+		cpuNum = runtime.NumCPU()
+	} else if cpuNum > runtime.NumCPU() {
+		cpuNum = runtime.NumCPU()
+	}
+	const compilationUsage = 16
+	cpuNum = cpuNum / compilationUsage
+	if cpuNum%compilationUsage != 0 {
+		cpuNum++
+	}
+	if cpuNum < 1 {
+		cpuNum = 1
+	}
+	if len(compileBinaries) < cpuNum {
+		cpuNum = len(compileBinaries)
+	}
+	PrintGreen(fmt.Sprintf("The number of concurrent compilations is %d", cpuNum))
+	task := make(chan int, cpuNum)
+	go func() {
+		for i := range compileBinaries {
+			task <- i
+		}
+		close(task)
+	}()
 
-	var wg sync.WaitGroup
-	errors := make(chan error, 1)
-	sem := make(chan struct{}, 4)
+	res := make(chan string, 1)
+	running := int64(cpuNum)
 
-	for _, binary := range compileBinaries {
-		binaryPath := filepath.Join(sourceDir, binary)
-		// PrintBlue(fmt.Sprintf("Walking through binary path: %s", binaryPath))
-
-		err := filepath.Walk(binaryPath, func(path string, info os.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
-			if info.IsDir() {
-				return nil
-			}
-			if filepath.Base(path) != "main.go" {
-				return nil
-			}
-
-			dir := filepath.Dir(path)
-			dirName := filepath.Base(dir)
-
-			wg.Add(1)
-			go func(dir, dirName string) {
-				sem <- struct{}{}
-				defer wg.Done()
-				defer func() { <-sem }()
-
+	for i := 0; i < cpuNum; i++ {
+		go func() {
+			defer func() {
+				if atomic.AddInt64(&running, -1) == 0 {
+					close(res)
+				}
+			}()
+			for index := range task {
+				binaryPath := filepath.Join(sourceDir, compileBinaries[index])
+				path, err := getMainFile(binaryPath)
+				if err != nil {
+					PrintYellow(fmt.Sprintf("Failed to walk through binary path %s: %v", binaryPath, err))
+					os.Exit(1)
+				}
+				if path == "" {
+					continue
+				}
+				dir := filepath.Dir(path)
+				dirName := filepath.Base(dir)
 				outputFileName := dirName
 				if targetOS == "windows" {
 					outputFileName += ".exe"
 				}
-
 				PrintBlue(fmt.Sprintf("Compiling dir: %s for platform: %s binary: %s ...", dirName, platform, outputFileName))
-				err := sh.RunWith(map[string]string{
+				err = sh.RunWith(map[string]string{
 					"GOOS":   targetOS,
 					"GOARCH": targetArch,
 				}, "go", "build", "-o", filepath.Join(outputDir, outputFileName), path)
 				if err != nil {
-					errors <- fmt.Errorf("failed to compile %s for %s: %v", dirName, platform, err)
 					PrintRed("Compilation aborted. " + fmt.Sprintf("failed to compile %s for %s: %v", dirName, platform, err))
 					os.Exit(1)
-					return
 				}
 				PrintGreen(fmt.Sprintf("Successfully compiled. dir: %s for platform: %s binary: %s", dirName, platform, outputFileName))
-				mu.Lock()
-				compiledDirs = append(compiledDirs, dirName)
-				mu.Unlock()
-			}(dir, dirName)
-
-			return nil
-		})
-
-		if err != nil {
-			PrintYellow(fmt.Sprintf("Failed to walk through binary path %s: %v", binaryPath, err))
-			os.Exit(1)
-		}
-	}
-	wg.Wait()
-	close(errors)
-
-	// Check for errors
-	if err, ok := <-errors; ok {
-		fmt.Println(err)
-		os.Exit(1)
+				res <- dirName
+			}
+		}()
 	}
 
+	compiledDirs := make([]string, 0, len(compileBinaries))
+	for str := range res {
+		compiledDirs = append(compiledDirs, str)
+	}
 	return compiledDirs
+
+	//var compiledDirs []string
+	//var mu sync.Mutex
+	//var wg sync.WaitGroup
+	//errors := make(chan error, 1)
+	//sem := make(chan struct{}, 4)
+	//
+	//for _, binary := range compileBinaries {
+	//	binaryPath := filepath.Join(sourceDir, binary)
+	//	// PrintBlue(fmt.Sprintf("Walking through binary path: %s", binaryPath))
+	//
+	//	err := filepath.Walk(binaryPath, func(path string, info os.FileInfo, err error) error {
+	//		if err != nil {
+	//			return err
+	//		}
+	//		if info.IsDir() {
+	//			return nil
+	//		}
+	//		if filepath.Base(path) != "main.go" {
+	//			return nil
+	//		}
+	//
+	//		dir := filepath.Dir(path)
+	//		dirName := filepath.Base(dir)
+	//
+	//		wg.Add(1)
+	//		go func(dir, dirName string) {
+	//			sem <- struct{}{}
+	//			defer wg.Done()
+	//			defer func() { <-sem }()
+	//
+	//			outputFileName := dirName
+	//			if targetOS == "windows" {
+	//				outputFileName += ".exe"
+	//			}
+	//
+	//			PrintBlue(fmt.Sprintf("Compiling dir: %s for platform: %s binary: %s ...", dirName, platform, outputFileName))
+	//			err := sh.RunWith(map[string]string{
+	//				"GOOS":   targetOS,
+	//				"GOARCH": targetArch,
+	//			}, "go", "build", "-o", filepath.Join(outputDir, outputFileName), path)
+	//			if err != nil {
+	//				errors <- fmt.Errorf("failed to compile %s for %s: %v", dirName, platform, err)
+	//				PrintRed("Compilation aborted. " + fmt.Sprintf("failed to compile %s for %s: %v", dirName, platform, err))
+	//				os.Exit(1)
+	//				return
+	//			}
+	//			PrintGreen(fmt.Sprintf("Successfully compiled. dir: %s for platform: %s binary: %s", dirName, platform, outputFileName))
+	//			mu.Lock()
+	//			compiledDirs = append(compiledDirs, dirName)
+	//			mu.Unlock()
+	//		}(dir, dirName)
+	//
+	//		return nil
+	//	})
+	//
+	//	if err != nil {
+	//		PrintYellow(fmt.Sprintf("Failed to walk through binary path %s: %v", binaryPath, err))
+	//		os.Exit(1)
+	//	}
+	//}
+	//wg.Wait()
+	//close(errors)
+	//
+	//// Check for errors
+	//if err, ok := <-errors; ok {
+	//	fmt.Println(err)
+	//	os.Exit(1)
+	//}
+	//
+	//return compiledDirs
 }
 
 func Build(binaries []string) {
