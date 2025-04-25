@@ -89,7 +89,7 @@ func StartToolsAndServices() {
 }
 
 // CompileForPlatform Main compile function
-func CompileForPlatform(platform string, compileBinaries []string) {
+func CompileForPlatform(cgoEnabled string, platform string, compileBinaries []string) {
 	var cmdBinaries, toolsBinaries []string
 
 	toolsPrefix := filepath.Join("tools", "")
@@ -110,12 +110,12 @@ func CompileForPlatform(platform string, compileBinaries []string) {
 
 	if len(cmdBinaries) > 0 {
 		PrintBlue(fmt.Sprintf("Compiling cmd binaries for %s...", platform))
-		cmdCompiledDirs = compileDir(filepath.Join(rootDirPath, "cmd"), OpenIMOutputBinPath, platform, cmdBinaries)
+		cmdCompiledDirs = compileDir(cgoEnabled, filepath.Join(rootDirPath, "cmd"), OpenIMOutputBinPath, platform, cmdBinaries)
 	}
 
 	if len(toolsBinaries) > 0 {
 		PrintBlue(fmt.Sprintf("Compiling tools binaries for %s...", platform))
-		toolsCompiledDirs = compileDir(filepath.Join(rootDirPath, "tools"), OpenIMOutputBinToolPath, platform, toolsBinaries)
+		toolsCompiledDirs = compileDir(cgoEnabled, filepath.Join(rootDirPath, "tools"), OpenIMOutputBinToolPath, platform, toolsBinaries)
 	}
 
 	createStartConfigYML(cmdCompiledDirs, toolsCompiledDirs)
@@ -169,7 +169,7 @@ func getMainFile(binaryPath string) (string, error) {
 	return retPath, nil
 }
 
-func compileDir(sourceDir, outputBase, platform string, compileBinaries []string) []string {
+func compileDir(cgoEnabled string, sourceDir, outputBase, platform string, compileBinaries []string) []string {
 	if info, err := os.Stat(sourceDir); err != nil {
 		if os.IsNotExist(err) {
 			return nil
@@ -240,10 +240,15 @@ func compileDir(sourceDir, outputBase, platform string, compileBinaries []string
 					outputFileName += ".exe"
 				}
 				PrintBlue(fmt.Sprintf("Compiling dir: %s for platform: %s binary: %s ...", dirName, platform, outputFileName))
-				err = sh.RunWith(map[string]string{
-					"GOOS":   targetOS,
-					"GOARCH": targetArch,
-				}, "go", "build", "-o", filepath.Join(outputDir, outputFileName), path)
+				env := map[string]string{
+					"GOOS":        targetOS,
+					"GOARCH":      targetArch,
+					"CGO_ENABLED": cgoEnabled,
+				}
+				if cgoEnabled == "" {
+					delete(env, "CGO_ENABLED")
+				}
+				err = sh.RunWith(env, "go", "build", "-o", filepath.Join(outputDir, outputFileName), path)
 				if err != nil {
 					PrintRed("Compilation aborted. " + fmt.Sprintf("failed to compile %s for %s: %v", dirName, platform, err))
 					os.Exit(1)
@@ -343,9 +348,12 @@ func Build(binaries []string) {
 		platforms = DetectPlatform()
 	}
 	compileBinaries := getBinaries(binaries)
-
+	cgoEnabled := os.Getenv("CGO_ENABLED")
+	if cgoEnabled != "" {
+		PrintBlue(fmt.Sprintf("CGO_ENABLED %s", cgoEnabled))
+	}
 	for _, platform := range strings.Split(platforms, " ") {
-		CompileForPlatform(platform, compileBinaries)
+		CompileForPlatform(cgoEnabled, platform, compileBinaries)
 	}
 	PrintGreen("All specified binaries under cmd and tools were successfully compiled.")
 }
