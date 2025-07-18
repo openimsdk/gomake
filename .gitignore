@@ -1,0 +1,13 @@
+dist/
+
+.DS_Store
+
+pkg
+
+_output
+
+cmd/openmeeting-rtmp/
+
+*/openmeeting-rtmp/
+
+work_cmd

@@ -17,19 +17,40 @@ func StopBinaries() {
 	}
 }
 
-// StartBinaries Start all binary services.
-func StartBinaries() error {
-	for binary, count := range serviceBinaries {
-		binFullPath := filepath.Join(OpenIMOutputHostBin, binary)
-		for i := 0; i < count; i++ {
-			if os.Getenv(DeploymentType) == KUBERNETES {
-				OpenIMOutputConfig = OpenIMK8sConfig
-				// OpenIMOutputConfig = "/config"
+// StartBinaries Start all binary services or specified ones.
+func StartBinaries(specificBinaries ...string) error {
+	var binariesToStart map[string]int
+	if len(specificBinaries) > 0 {
+		binariesToStart = make(map[string]int)
+		for _, binary := range specificBinaries {
+			if count, exists := serviceBinaries[binary]; exists {
+				binariesToStart[binary] = count
+			} else {
+				binariesToStart[binary] = 1
+				// PrintYellow(fmt.Sprintf("Binary %s not found in config, starting with default count 1", binary))
 			}
-			args := []string{"-i", strconv.Itoa(i), "-c", OpenIMOutputConfig}
+		}
+	} else {
+		binariesToStart = serviceBinaries
+	}
+
+	for binary, count := range binariesToStart {
+		binFullPath := filepath.Join(Paths.OutputHostBin, binary)
+
+		if _, err := os.Stat(binFullPath); err != nil {
+			PrintRed(fmt.Sprintf("Binary not found: %s. Please build first.", binFullPath))
+			continue
+		}
+
+		for i := 0; i < count; i++ {
+			configPath := Paths.Config
+			if os.Getenv(DeploymentType) == KUBERNETES {
+				configPath = Paths.K8sConfig
+			}
+			args := []string{"-i", strconv.Itoa(i), "-c", configPath}
 			cmd := exec.Command(binFullPath, args...)
 			fmt.Printf("Starting %s\n", cmd.String())
-			cmd.Dir = OpenIMOutputHostBin
+			cmd.Dir = Paths.OutputHostBin
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
 			if err := cmd.Start(); err != nil {
@@ -40,18 +61,43 @@ func StartBinaries() error {
 	return nil
 }
 
-// StartTools starts all tool binaries.
-func StartTools() error {
-	for _, tool := range toolBinaries {
-		toolFullPath := GetToolFullPath(tool)
+// StartTools starts all tool binaries or specified ones.
+func StartTools(specificTools ...string) error {
+	var toolsToStart []string
+	if len(specificTools) > 0 {
+		for _, tool := range specificTools {
+			found := false
+			for _, configTool := range toolBinaries {
+				if configTool == tool {
+					found = true
+					break
+				}
+			}
+			if !found {
+				PrintYellow(fmt.Sprintf("Tool %s not found in config, but will try to start", tool))
+			}
+			toolsToStart = append(toolsToStart, tool)
+		}
+	} else {
+		toolsToStart = toolBinaries
+	}
 
-		if os.Getenv(DeploymentType) == KUBERNETES {
-			OpenIMOutputConfig = OpenIMK8sConfig
+	for _, tool := range toolsToStart {
+		toolFullPath := GetBinToolsFullPath(tool)
+
+		if _, err := os.Stat(toolFullPath); err != nil {
+			PrintRed(fmt.Sprintf("Tool not found: %s. Please build first.", toolFullPath))
+			continue
 		}
 
-		cmd := exec.Command(toolFullPath, "-c", OpenIMOutputConfig)
+		configPath := Paths.Config
+		if os.Getenv(DeploymentType) == KUBERNETES {
+			configPath = Paths.K8sConfig
+		}
+
+		cmd := exec.Command(toolFullPath, "-c", configPath)
 		fmt.Printf("Starting %s\n", cmd.String())
-		cmd.Dir = OpenIMOutputHostBinTools
+		cmd.Dir = Paths.OutputHostBinTools
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 
@@ -118,7 +164,7 @@ func CheckBinariesRunning() error {
 	}
 
 	if len(errorMessages) > 0 {
-		return fmt.Errorf(strings.Join(errorMessages, "\n"))
+		return fmt.Errorf("%s", strings.Join(errorMessages, "\n"))
 	}
 
 	return nil
@@ -130,7 +176,7 @@ func PrintListenedPortsByBinaries() error {
 	if err != nil {
 		return err
 	}
-	for binary, _ := range serviceBinaries {
+	for binary := range serviceBinaries {
 		basePath := GetBinFullPath(binary)
 		fullPath := basePath
 		PrintBinaryPorts(fullPath, ps)

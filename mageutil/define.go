@@ -8,6 +8,10 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+const (
+	StartConfigFile = "start-config.yml"
+)
+
 var (
 	serviceBinaries    map[string]int
 	toolBinaries       []string
@@ -21,7 +25,7 @@ type Config struct {
 }
 
 func InitForSSC() {
-	yamlFile, err := os.ReadFile("start-config.yml")
+	yamlFile, err := os.ReadFile(StartConfigFile)
 	if err != nil {
 		fmt.Printf("error reading YAML file: %v", err)
 		os.Exit(1)

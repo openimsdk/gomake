@@ -1,11 +1,14 @@
+// Unix
+
 //go:build mage && !windows
 // +build mage,!windows
 
 package main
 
 import (
-	"github.com/openimsdk/gomake/mageutil"
 	"syscall"
+
+	"github.com/openimsdk/gomake/mageutil"
 )
 
 func setMaxOpenFiles() error {
