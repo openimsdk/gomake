@@ -2,12 +2,12 @@ package mageutil
 
 import (
 	"fmt"
-	"github.com/shirou/gopsutil/net"
-	"github.com/shirou/gopsutil/process"
 	"os"
-	"path/filepath"
 	"runtime"
 	"strings"
+
+	"github.com/shirou/gopsutil/net"
+	"github.com/shirou/gopsutil/process"
 )
 
 func OsArch() string {
@@ -234,5 +234,6 @@ func rootDir() string {
 }
 
 var rootDirPath = rootDir()
-var platformsOutputBase = filepath.Join(rootDirPath, "_output/bin/platforms")
-var toolsOutputBase = filepath.Join(rootDirPath, "_output/bin/tools")
+
+// var platformsOutputBase = filepath.Join(rootDirPath, "_output/bin/platforms")
+// var toolsOutputBase = filepath.Join(rootDirPath, "_output/bin/tools")
