@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -66,13 +67,7 @@ func StartTools(specificTools ...string) error {
 	var toolsToStart []string
 	if len(specificTools) > 0 {
 		for _, tool := range specificTools {
-			found := false
-			for _, configTool := range toolBinaries {
-				if configTool == tool {
-					found = true
-					break
-				}
-			}
+			found := slices.Contains(toolBinaries, tool)
 			if !found {
 				PrintYellow(fmt.Sprintf("Tool %s not found in config, but will try to start", tool))
 			}
