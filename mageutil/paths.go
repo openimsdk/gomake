@@ -15,6 +15,7 @@ const (
 	// Directory name constants
 	ConfigDir    = "config"
 	OutputDir    = "_output"
+	SrcDir       = "cmd"
 	ToolsDir     = "tools"
 	TmpDir       = "tmp"
 	LogsDir      = "logs"
@@ -65,7 +66,8 @@ func NewPathConfig(opts *PathOptions) (*PathConfig, error) {
 	// Determine root directory
 	var rootDir string
 	if opts != nil && opts.RootDir != nil {
-		rootDir = *opts.RootDir
+		// rootDir = *opts.RootDir
+		rootDir, _ = filepath.Abs(*opts.RootDir)
 	} else {
 		currentDir, err := os.Getwd()
 		if err != nil {
@@ -75,12 +77,12 @@ func NewPathConfig(opts *PathOptions) (*PathConfig, error) {
 	}
 
 	// Determine source directories
-	srcDir := "cmd"
+	srcDir := SrcDir
 	if opts != nil && opts.SrcDir != nil {
 		srcDir = *opts.SrcDir
 	}
 
-	toolsDir := "tools"
+	toolsDir := ToolsDir
 	if opts != nil && opts.ToolsDir != nil {
 		toolsDir = *opts.ToolsDir
 	}
@@ -104,8 +106,7 @@ func NewPathConfig(opts *PathOptions) (*PathConfig, error) {
 
 	// Set base paths
 	config.Config = config.joinPath(config.Root, configDir)
-	config.Output = config.joinPath(rootDirPath, outputDir) // use default output directory, not rootDir parameter.
-	// config.Output = config.joinPath(config.Root, outputDir) // use default output directory, not rootDir parameter.
+	config.Output = config.joinPath(config.Root, outputDir)
 
 	// Set output subdirectories
 	config.OutputTools = config.joinPath(config.Output, ToolsDir)
