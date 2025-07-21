@@ -611,6 +611,10 @@ func isToolBinary(binary string) (string, bool) {
 }
 
 func isExecutableFile(filePath string) bool {
+	if runtime.GOOS == "windows" && !strings.HasSuffix(strings.ToLower(filePath), ".exe") {
+		filePath += ".exe"
+	}
+
 	info, err := os.Stat(filePath)
 	if err != nil {
 		return false
@@ -621,7 +625,7 @@ func isExecutableFile(filePath string) bool {
 	}
 
 	if runtime.GOOS == "windows" {
-		return strings.HasSuffix(strings.ToLower(filePath), ".exe")
+		return true
 	}
 
 	return info.Mode()&0111 != 0
