@@ -45,7 +45,16 @@ func InitForSSC() {
 		}
 		adjustedBinaries[binary] = count
 	}
+
+	adjustedToolsBinaries := make([]string, len(config.ToolBinaries))
+	for i, tool := range config.ToolBinaries {
+		if runtime.GOOS == "windows" {
+			tool += ".exe"
+		}
+		adjustedToolsBinaries[i] = tool
+	}
+
 	serviceBinaries = adjustedBinaries
-	toolBinaries = config.ToolBinaries
+	toolBinaries = adjustedToolsBinaries
 	MaxFileDescriptors = config.MaxFileDescriptors
 }
