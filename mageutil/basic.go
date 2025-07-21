@@ -78,13 +78,13 @@ func StartToolsAndServices(binaries []string, pathOpts *PathOptions) {
 
 		for _, binary := range binaries {
 			if isExecutableBinary(binary) {
-				if os.Getenv("GOOS") == "windows" {
+				if runtime.GOOS == "windows" {
 					binary += ".exe"
 				}
 				cmdBinaries = append(cmdBinaries, binary)
 			}
 			if isExecutableToolBinary(binary) {
-				if os.Getenv("GOOS") == "windows" {
+				if runtime.GOOS == "windows" {
 					binary += ".exe"
 				}
 				toolsBinaries = append(toolsBinaries, binary)
