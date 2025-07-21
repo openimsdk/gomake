@@ -88,6 +88,8 @@ func StartWithCustomConfig() {
 	}
 
 	config := &mageutil.PathOptions{
+		RootDir:   &customRootDir,   // default is "."(current directory)
+		OutputDir: &customOutputDir, // default is "_output"
 		ConfigDir: &customConfigDir, // default is "config"
 	}
 
