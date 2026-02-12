@@ -391,7 +391,14 @@ func compileDir(cgoEnabled string, sourceDir, outputBase, platform string, compi
 				// PrintBlue(fmt.Sprintf("DEBUG: goModDir = '%s'", goModDir))
 				// PrintBlue(fmt.Sprintf("DEBUG: path = '%s'", path))
 
-				err = sh.RunWith(env, "go", "build", "-o", outputPath, buildTarget)
+				buildArgs := []string{"build", "-o", outputPath}
+				if strings.ToLower(os.Getenv("RELEASE")) == "true" {
+					PrintBlue("Building in release mode with optimizations...")
+					buildArgs = append(buildArgs, "-trimpath", "-ldflags", "-s -w")
+				}
+				buildArgs = append(buildArgs, buildTarget)
+
+				err = sh.RunWith(env, "go", buildArgs...)
 
 				os.Chdir(originalDir)
 
@@ -401,6 +408,16 @@ func compileDir(cgoEnabled string, sourceDir, outputBase, platform string, compi
 				}
 
 				PrintGreen(fmt.Sprintf("Successfully compiled. dir: %s for platform: %s binary: %s", dirName, platform, outputFileName))
+
+				if strings.ToLower(os.Getenv("COMPRESS")) == "true" {
+					PrintBlue(fmt.Sprintf("Compressing %s with UPX...", outputFileName))
+					if err := sh.RunWith(nil, "upx", "--lzma", outputPath); err != nil {
+						PrintYellow(fmt.Sprintf("UPX compression failed for %s (non-fatal): %v", outputFileName, err))
+					} else {
+						PrintGreen(fmt.Sprintf("Successfully compressed with UPX: %s", outputFileName))
+					}
+				}
+
 				res <- dirName
 			}
 		}()
