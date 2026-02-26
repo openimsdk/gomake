@@ -24,6 +24,9 @@ var (
 	customOutputDir = "_output"
 	customConfigDir = "config"
 	customToolsDir  = "tools"
+
+	customExportProjectName = "gomake"
+	customExportBuildOpt    *mageutil.BuildOptions
 )
 
 // Build support specifical binary build.
@@ -36,7 +39,7 @@ func Build() {
 		bin = bin[1:]
 	}
 
-	mageutil.Build(bin, nil)
+	mageutil.Build(bin, nil, nil)
 }
 
 func BuildWithCustomConfig() {
@@ -53,7 +56,7 @@ func BuildWithCustomConfig() {
 		ToolsDir:  &customToolsDir,  // default is "tools"
 	}
 
-	mageutil.Build(bin, config)
+	mageutil.Build(bin, config, nil)
 }
 
 func Start() {
@@ -106,4 +109,16 @@ func Check() {
 
 func Protocol() {
 	mageutil.Protocol()
+}
+
+func Export() {
+	exportOpt := &mageutil.ExportOptions{
+		ProjectName: &customExportProjectName,
+		BuildOpt:    customExportBuildOpt,
+	}
+	err := mageutil.ExportMageLauncherArchived(nil, exportOpt)
+	if err != nil {
+		mageutil.PrintRed("export failed " + err.Error())
+		os.Exit(1)
+	}
 }

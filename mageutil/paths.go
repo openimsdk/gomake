@@ -18,6 +18,7 @@ const (
 	SrcDir       = "cmd"
 	ToolsDir     = "tools"
 	TmpDir       = "tmp"
+	ExportDir    = "export"
 	LogsDir      = "logs"
 	BinDir       = "bin"
 	PlatformsDir = "platforms"
@@ -31,6 +32,7 @@ type PathConfig struct {
 	Output             string
 	OutputTools        string
 	OutputTmp          string
+	OutputExport       string
 	OutputLogs         string
 	OutputBin          string
 	OutputBinPath      string
@@ -111,6 +113,7 @@ func NewPathConfig(opts *PathOptions) (*PathConfig, error) {
 	// Set output subdirectories
 	config.OutputTools = config.joinPath(config.Output, ToolsDir)
 	config.OutputTmp = config.joinPath(config.Output, TmpDir)
+	config.OutputExport = config.joinPath(config.Output, ExportDir)
 	config.OutputLogs = config.joinPath(config.Output, LogsDir)
 	config.OutputBin = config.joinPath(config.Output, BinDir)
 
@@ -176,6 +179,7 @@ func (p *PathConfig) createDirectories() error {
 		p.Output,
 		p.OutputTools,
 		p.OutputTmp,
+		p.OutputExport,
 		p.OutputLogs,
 		p.OutputBin,
 		p.OutputBinPath,
