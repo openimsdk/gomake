@@ -3,6 +3,7 @@ package mageutil
 import (
 	"archive/tar"
 	"compress/gzip"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -10,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/openimsdk/gomake/internal/util"
+	"github.com/openimsdk/tools/utils/datautil"
 )
 
 type ExportOptions struct {
@@ -157,4 +159,81 @@ func EnsureRootRelPaths(paths ...string) (map[string]string, error) {
 	}
 
 	return relPathMap, nil
+}
+
+func GetAllRootFilesExcludeIgnore() ([]string, error) {
+	root := Paths.Root
+	if root == "" {
+		return nil, fmt.Errorf("root path is empty")
+	}
+
+	cmd := exec.Command("git", "ls-files", "-co", "--exclude-standard", "-z")
+	cmd.Dir = root
+
+	output, err := cmd.Output()
+	if err != nil {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			return nil, fmt.Errorf("failed to list root files via git ls-files: %s", strings.TrimSpace(string(exitErr.Stderr)))
+		}
+		return nil, fmt.Errorf("failed to list root files via git ls-files: %v", err)
+	}
+
+	ret := make([]string, 0)
+	for _, relPath := range strings.Split(string(output), "\x00") {
+		if relPath == "" {
+			continue
+		}
+
+		cleanRelPath := filepath.Clean(filepath.FromSlash(relPath))
+		if cleanRelPath == "." {
+			continue
+		}
+
+		absPath := filepath.Join(root, cleanRelPath)
+		info, statErr := os.Stat(absPath)
+		if statErr != nil {
+			if os.IsNotExist(statErr) {
+				continue
+			}
+			return nil, fmt.Errorf("failed to stat file %s listed by git: %v", absPath, statErr)
+		}
+		if info.IsDir() {
+			continue
+		}
+
+		ret = append(ret, filepath.ToSlash(absPath))
+	}
+
+	if len(ret) == 0 {
+		return nil, fmt.Errorf("no files found under root %s after applying gitignore rules", root)
+	}
+
+	return ret, nil
+}
+
+func GetDefaultExportMappingPaths() (map[string]string, error) {
+	allFiles, err := GetAllRootFilesExcludeIgnore()
+	if err != nil {
+		return nil, err
+	}
+	excludeSuffix := []string{
+		".go",
+		".proto",
+	}
+	allFilteredFiles := datautil.Filter(allFiles, func(e string) (string, bool) {
+		ok := true
+		for _, suffix := range excludeSuffix {
+			if strings.HasSuffix(e, suffix) {
+				ok = false
+				break
+			}
+		}
+		return e, ok
+	})
+	mappingPaths, err := EnsureRootRelPaths(allFilteredFiles...)
+	if err != nil {
+		return nil, err
+	}
+	return mappingPaths, nil
 }

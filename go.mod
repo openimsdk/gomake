@@ -11,6 +11,7 @@ require (
 
 require (
 	github.com/go-ole/go-ole v1.3.0 // indirect
+	github.com/openimsdk/tools v0.0.49 // indirect
 	github.com/stretchr/testify v1.9.0 // indirect
 	github.com/tklauser/go-sysconf v0.3.16 // indirect
 	github.com/tklauser/numcpus v0.11.0 // indirect
