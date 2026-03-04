@@ -39,7 +39,9 @@ func Build() {
 		bin = bin[1:]
 	}
 
-	mageutil.Build(bin, nil, nil)
+	mageutil.WithSpinner("Building binaries...", func() {
+		mageutil.Build(bin, nil, nil)
+	})
 }
 
 func BuildWithCustomConfig() {
@@ -56,7 +58,9 @@ func BuildWithCustomConfig() {
 		ToolsDir:  &customToolsDir,  // default is "tools"
 	}
 
-	mageutil.Build(bin, config, nil)
+	mageutil.WithSpinner("Building binaries with custom config...", func() {
+		mageutil.Build(bin, config, nil)
+	})
 }
 
 func Start() {
@@ -73,7 +77,9 @@ func Start() {
 		bin = bin[1:]
 	}
 
-	mageutil.StartToolsAndServices(bin, nil)
+	mageutil.WithSpinner("Starting tools and services...", func() {
+		mageutil.StartToolsAndServices(bin, nil)
+	})
 }
 
 func StartWithCustomConfig() {
@@ -96,19 +102,21 @@ func StartWithCustomConfig() {
 		ConfigDir: &customConfigDir, // default is "config"
 	}
 
-	mageutil.StartToolsAndServices(bin, config)
+	mageutil.WithSpinner("Starting tools and services with custom config...", func() {
+		mageutil.StartToolsAndServices(bin, config)
+	})
 }
 
 func Stop() {
-	mageutil.StopAndCheckBinaries()
+	mageutil.WithSpinner("Checking service status...", mageutil.StopAndCheckBinaries)
 }
 
 func Check() {
-	mageutil.CheckAndReportBinariesStatus()
+	mageutil.WithSpinner("Checking service status...", mageutil.CheckAndReportBinariesStatus)
 }
 
 func Protocol() {
-	mageutil.Protocol()
+	mageutil.WithSpinnerE("Generating protocol artifacts...", mageutil.Protocol)
 }
 
 func Export() {
@@ -116,7 +124,7 @@ func Export() {
 		ProjectName: &customExportProjectName,
 		BuildOpt:    customExportBuildOpt,
 	}
-	err := mageutil.ExportMageLauncherArchived(nil, exportOpt)
+	err := mageutil.WithSpinnerE("Exporting launcher archive...", func() error { return mageutil.ExportMageLauncherArchived(nil, exportOpt) })
 	if err != nil {
 		mageutil.PrintRed("export failed " + err.Error())
 		os.Exit(1)
