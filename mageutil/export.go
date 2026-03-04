@@ -149,13 +149,23 @@ func archive(archivePath string, mappingPaths map[string]string) error {
 }
 
 func EnsureRootRelPaths(paths ...string) (map[string]string, error) {
+	root := filepath.Clean(Paths.Root)
+	if root == "" {
+		return nil, fmt.Errorf("root path is empty")
+	}
+
 	relPathMap := make(map[string]string)
 	for _, path := range paths {
-		relPath, err := filepath.Rel(Paths.Root, path)
+		absPath := filepath.Clean(filepath.FromSlash(path))
+		if !filepath.IsAbs(absPath) {
+			absPath = filepath.Join(root, absPath)
+		}
+
+		relPath, err := filepath.Rel(root, absPath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get relative path for %s: %v", path, err)
 		}
-		relPathMap[path] = relPath
+		relPathMap[absPath] = filepath.ToSlash(relPath)
 	}
 
 	return relPathMap, nil
@@ -167,7 +177,7 @@ func GetAllRootFilesExcludeIgnore() ([]string, error) {
 		return nil, fmt.Errorf("root path is empty")
 	}
 
-	cmd := exec.Command("git", "ls-files", "-co", "--exclude-standard", "-z")
+	cmd := exec.Command("git", "ls-files", "-c", "--exclude-standard", "-z")
 	cmd.Dir = root
 
 	output, err := cmd.Output()
@@ -179,7 +189,7 @@ func GetAllRootFilesExcludeIgnore() ([]string, error) {
 		return nil, fmt.Errorf("failed to list root files via git ls-files: %v", err)
 	}
 
-	ret := make([]string, 0)
+	relPaths := make([]string, 0)
 	for _, relPath := range strings.Split(string(output), "\x00") {
 		if relPath == "" {
 			continue
@@ -202,38 +212,28 @@ func GetAllRootFilesExcludeIgnore() ([]string, error) {
 			continue
 		}
 
-		ret = append(ret, filepath.ToSlash(absPath))
+		relPaths = append(relPaths, filepath.ToSlash(cleanRelPath))
 	}
 
-	if len(ret) == 0 {
+	if len(relPaths) == 0 {
 		return nil, fmt.Errorf("no files found under root %s after applying gitignore rules", root)
 	}
 
-	return ret, nil
+	return relPaths, nil
 }
 
-func GetDefaultExportMappingPaths() (map[string]string, error) {
+func GetDefaultExportMappingPaths(exclude []string) (map[string]string, error) {
 	allFiles, err := GetAllRootFilesExcludeIgnore()
 	if err != nil {
 		return nil, err
 	}
-	excludeSuffix := []string{
-		".go",
-		".proto",
-	}
+
 	allFilteredFiles := datautil.Filter(allFiles, func(e string) (string, bool) {
-		ok := true
-		for _, suffix := range excludeSuffix {
-			if strings.HasSuffix(e, suffix) {
-				ok = false
-				break
-			}
+		if util.MatchAnyFilepathGlob(e, exclude) {
+			return "", false
 		}
-		return e, ok
+		return e, true
 	})
-	mappingPaths, err := EnsureRootRelPaths(allFilteredFiles...)
-	if err != nil {
-		return nil, err
-	}
-	return mappingPaths, nil
+
+	return EnsureRootRelPaths(allFilteredFiles...)
 }

@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/bmatcuk/doublestar/v4"
 )
 
 func CheckExist(path string) error {
@@ -75,4 +77,35 @@ func FindGoModDir(startDir string) string {
 
 func IsExcludedBinaryDir(name string) bool {
 	return strings.HasPrefix(name, ".") || strings.EqualFold(name, "internal")
+}
+
+func MatchAnyFilepathGlob(file string, patterns []string) bool {
+	f := filepath.ToSlash(strings.TrimSpace(file))
+	f = strings.TrimPrefix(f, "./")
+	if f == "" {
+		return false
+	}
+
+	for _, p := range patterns {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		p = filepath.ToSlash(p)
+		p = strings.TrimPrefix(p, "./")
+
+		if strings.HasSuffix(p, "/") {
+			p = strings.TrimSuffix(p, "/") + "/**"
+		}
+
+		ok, err := doublestar.Match(p, f)
+		if err == nil && ok {
+			return true
+		}
+
+		if !strings.ContainsAny(p, "*?[") && (f == p || strings.HasPrefix(f, p+"/")) {
+			return true
+		}
+	}
+	return false
 }
