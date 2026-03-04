@@ -77,45 +77,37 @@ func Print(opt PrintOptions) (int, error) {
 	return n, err
 }
 
-func PrintBlue(message string) error {
-	_, err := Print(PrintOptions{Color: ColorBlue, Message: message, WithTime: true})
-	return err
+func PrintBlue(message string) {
+	_, _ = Print(PrintOptions{Color: ColorBlue, Message: message, WithTime: true})
 }
-func PrintGreen(message string) error {
-	_, err := Print(PrintOptions{Color: ColorGreen, Message: message, WithTime: true})
-	return err
+func PrintGreen(message string) {
+	_, _ = Print(PrintOptions{Color: ColorGreen, Message: message, WithTime: true})
 }
-func PrintRed(message string) error {
-	_, err := Print(PrintOptions{Color: ColorRed, Message: message, WithTime: true})
-	return err
+func PrintRed(message string) {
+	_, _ = Print(PrintOptions{Color: ColorRed, Message: message, WithTime: true})
 }
-func PrintYellow(message string) error {
-	_, err := Print(PrintOptions{Color: ColorYellow, Message: message, WithTime: true})
-	return err
+func PrintYellow(message string) {
+	_, _ = Print(PrintOptions{Color: ColorYellow, Message: message, WithTime: true})
 }
 
-func PrintRedNoTimeStamp(message string) error {
-	_, err := Print(PrintOptions{Color: ColorRed, Message: message, WithTime: false})
-	return err
+func PrintRedNoTimeStamp(message string) {
+	_, _ = Print(PrintOptions{Color: ColorRed, Message: message, WithTime: false})
 }
 
-func PrintBlueTwoLine(message string) error {
-	_, err := Print(PrintOptions{Color: ColorBlue, Message: message, WithTime: true, TwoLine: true})
-	return err
+func PrintBlueTwoLine(message string) {
+	_, _ = Print(PrintOptions{Color: ColorBlue, Message: message, WithTime: true, TwoLine: true})
 }
 
-func PrintGreenTwoLine(message string) error {
-	_, err := Print(PrintOptions{Color: ColorGreen, Message: message, WithTime: true, TwoLine: true})
-	return err
+func PrintGreenTwoLine(message string) {
+	_, _ = Print(PrintOptions{Color: ColorGreen, Message: message, WithTime: true, TwoLine: true})
 }
 
-func PrintGreenNoTimeStamp(message string) error {
-	_, err := Print(PrintOptions{Color: ColorGreen, Message: message, WithTime: false})
-	return err
+func PrintGreenNoTimeStamp(message string) {
+	_, _ = Print(PrintOptions{Color: ColorGreen, Message: message, WithTime: false})
 }
 
-func PrintRedToStdErr(a ...any) (int, error) {
-	return Print(PrintOptions{
+func PrintRedToStdErr(a ...any) {
+	_, _ = Print(PrintOptions{
 		Writer:    os.Stderr,
 		Color:     ColorRed,
 		Message:   fmt.Sprint(a...),
@@ -124,8 +116,8 @@ func PrintRedToStdErr(a ...any) (int, error) {
 	})
 }
 
-func PrintGreenToStdOut(a ...any) (int, error) {
-	return Print(PrintOptions{
+func PrintGreenToStdOut(a ...any) {
+	_, _ = Print(PrintOptions{
 		Writer:    os.Stdout,
 		Color:     ColorGreen,
 		Message:   fmt.Sprint(a...),
