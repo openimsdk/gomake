@@ -7,7 +7,7 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/shirou/gopsutil/disk"
+	"github.com/shirou/gopsutil/v4/disk"
 )
 
 func CoalescePtr[T any](values ...*T) *T {

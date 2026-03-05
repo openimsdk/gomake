@@ -7,8 +7,8 @@ import (
 	"strings"
 
 	"github.com/openimsdk/gomake/internal/util"
-	"github.com/shirou/gopsutil/net"
-	"github.com/shirou/gopsutil/process"
+	"github.com/shirou/gopsutil/v4/net"
+	"github.com/shirou/gopsutil/v4/process"
 )
 
 func OsArch() string {
