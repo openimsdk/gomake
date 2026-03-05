@@ -124,7 +124,9 @@ func Export() {
 		ProjectName: &customExportProjectName,
 		BuildOpt:    customExportBuildOpt,
 	}
-	err := mageutil.WithSpinnerE("Exporting launcher archive...", func() error { return mageutil.ExportMageLauncherArchived(nil, exportOpt) })
+	err := mageutil.WithSpinnerE("Exporting launcher archive...", func() error {
+		return mageutil.ExportMageLauncherArchived(nil, exportOpt)
+	})
 	if err != nil {
 		mageutil.PrintRed("export failed " + err.Error())
 		os.Exit(1)
