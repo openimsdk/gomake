@@ -260,7 +260,7 @@ func GetAllRootFilesExcludeIgnore() ([]string, error) {
 	}
 
 	cmdOutput, err := NewCmd("git").
-		WithArgs("ls-files", "-c", "--exclude-standard", "-z").
+		WithArgs("ls-files", "-c", "-o", "--exclude-standard", "-z").
 		WithDir(root).
 		Output()
 
