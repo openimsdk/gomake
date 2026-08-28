@@ -27,20 +27,20 @@ var (
 	customExportBuildOpt    *mageutil.BuildOptions
 )
 
-func BuildAll() error { return Build(nil) }
+func BuildAll() error { return Build(nil, nil) }
 
-// Build support specifical binary build.
+// Build supports building specific services and tools.
 //
-// Example: `mage build -bins=openim-api,openim-rpc-user,seq`
-func Build(bins *string) (err error) {
+// Example: `mage build -services=openim-api,openim-rpc-user -tools=seq`
+func Build(services *string, tools *string) (err error) {
 	defer mageutil.PrintErrPtr(&err)
 
 	return mageutil.WithSpinnerR("Building binaries...", func() error {
-		return mageutil.Build(mageutil.ParseArgList(bins), nil, nil)
+		return mageutil.Build(mageutil.ParseArgList(services), mageutil.ParseArgList(tools), nil, nil)
 	})
 }
 
-func BuildWithCustomConfig(bins *string) (err error) {
+func BuildWithCustomConfig(services *string, tools *string) (err error) {
 	defer mageutil.PrintErrPtr(&err)
 
 	config := &mageutil.PathOptions{
@@ -51,36 +51,20 @@ func BuildWithCustomConfig(bins *string) (err error) {
 	}
 
 	return mageutil.WithSpinnerR("Building binaries with custom config...", func() error {
-		return mageutil.Build(mageutil.ParseArgList(bins), config, nil)
+		return mageutil.Build(mageutil.ParseArgList(services), mageutil.ParseArgList(tools), config, nil)
 	})
 }
 
-func Start(bins *string) (err error) {
+func Start(tools *string, services *string) (err error) {
 	defer mageutil.PrintErrPtr(&err)
-
-	if err := mageutil.InitForSSC(); err != nil {
-		return err
-	}
-	err = setMaxOpenFiles()
-	if err != nil {
-		return fmt.Errorf("setMaxOpenFiles failed %w", err)
-	}
 
 	return mageutil.WithSpinnerR("Starting tools and services...", func() error {
-		return mageutil.StartToolsAndServices(mageutil.ParseArgList(bins), nil)
+		return mageutil.StartToolsAndServices(mageutil.ParseArgList(tools), mageutil.ParseArgList(services), nil)
 	})
 }
 
-func StartWithCustomConfig(bins *string) (err error) {
+func StartWithCustomConfig(tools *string, services *string) (err error) {
 	defer mageutil.PrintErrPtr(&err)
-
-	if err := mageutil.InitForSSC(); err != nil {
-		return err
-	}
-	err = setMaxOpenFiles()
-	if err != nil {
-		return fmt.Errorf("setMaxOpenFiles failed %w", err)
-	}
 
 	config := &mageutil.PathOptions{
 		RootDir:   &customRootDir,   // default is "."(current directory)
@@ -89,18 +73,18 @@ func StartWithCustomConfig(bins *string) (err error) {
 	}
 
 	return mageutil.WithSpinnerR("Starting tools and services with custom config...", func() error {
-		return mageutil.StartToolsAndServices(mageutil.ParseArgList(bins), config)
+		return mageutil.StartToolsAndServices(mageutil.ParseArgList(tools), mageutil.ParseArgList(services), config)
 	})
 }
 
 func Stop() (err error) {
 	defer mageutil.PrintErrPtr(&err)
-	return mageutil.WithSpinnerR("Checking service status...", mageutil.StopAndCheckBinaries)
+	return mageutil.WithSpinnerR("Checking service status...", mageutil.StopAndCheckServices)
 }
 
 func Check() (err error) {
 	defer mageutil.PrintErrPtr(&err)
-	return mageutil.WithSpinnerR("Checking service status...", mageutil.CheckAndReportBinariesStatus)
+	return mageutil.WithSpinnerR("Checking service status...", mageutil.CheckAndReportServicesStatus)
 }
 
 func Protocol() (err error) {

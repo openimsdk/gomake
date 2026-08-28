@@ -2,6 +2,7 @@ package mageutil
 
 import (
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"strings"
@@ -29,7 +30,7 @@ func (opt *ExportOptions) GetBuildOpt() *BuildOptions {
 func ExportMageLauncherArchived(overrideMappingPaths map[string]string, exportOpt *ExportOptions) error {
 	PrintBlue("Preparing launcher archive export...")
 	PrintBlue("Building binaries before export...")
-	if err := Build(nil, nil, exportOpt.GetBuildOpt()); err != nil {
+	if err := Build(nil, nil, nil, exportOpt.GetBuildOpt()); err != nil {
 		return err
 	}
 
@@ -76,7 +77,7 @@ func ExportMageLauncherArchived(overrideMappingPaths map[string]string, exportOp
 		PrintGreen(fmt.Sprintf("Mage binary compiled: %s", mageBinaryPath))
 
 		mappingPaths, err := EnsureRootRelPaths(
-			filepath.Join(Paths.OutputBinPath, targetOS, targetArch),
+			filepath.Join(Paths.OutputBinServicePath, targetOS, targetArch),
 			filepath.Join(Paths.OutputBinToolPath, targetOS, targetArch),
 			filepath.Join(Paths.Root, StartConfigFile),
 		)
@@ -91,9 +92,7 @@ func ExportMageLauncherArchived(overrideMappingPaths map[string]string, exportOp
 		}
 
 		mappingPaths[mageInPath] = mageOutPath
-		for k, v := range overrideMappingPaths {
-			mappingPaths[k] = v
-		}
+		maps.Copy(mappingPaths, overrideMappingPaths)
 
 		archiveName := fmt.Sprintf("exported_%s", platform)
 		projectName := exportOpt.GetProjectName()

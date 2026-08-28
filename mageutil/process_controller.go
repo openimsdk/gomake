@@ -4,62 +4,62 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
+
+	"github.com/openimsdk/gomake/internal/util"
 )
 
-// StopBinaries iterates over all binary files and terminates their corresponding processes.
-func StopBinaries() error {
+// StopServices terminates all configured service processes.
+func StopServices() error {
 	var errs []error
-	for binary := range serviceBinaries {
-		fullPath := GetBinFullPath(binary)
+	for service := range startConfig.Services {
+		fullPath := Paths.GetBinServiceFullPath(util.BinaryWithExtension(service))
 		errs = append(errs, KillExistBinary(fullPath))
 	}
 
 	return errors.Join(errs...)
 }
 
-// StartBinaries Start all binary services or specified ones.
-func StartBinaries(specificBinaries ...string) error {
-	var binariesToStart map[string]int
-	if len(specificBinaries) > 0 {
-		binariesToStart = make(map[string]int)
-		for _, binary := range specificBinaries {
-			if count, exists := serviceBinaries[binary]; exists {
-				binariesToStart[binary] = count
-			} else {
-				binariesToStart[binary] = 1
-				// PrintYellow(fmt.Sprintf("Binary %s not found in config, starting with default count 1", binary))
-			}
-		}
-	} else {
-		binariesToStart = serviceBinaries
+// StartServices starts all configured services or the specified ones.
+func StartServices(services []string) error {
+	if len(services) == 0 {
+		return errors.New("must specify at least one service")
 	}
 
-	for binary, count := range binariesToStart {
-		binFullPath := filepath.Join(Paths.OutputHostBin, binary)
+	servicesToStart := make(map[string]int)
+	for _, service := range services {
+		count, found := startConfig.Services[service]
+		if !found {
+			PrintYellow(fmt.Sprintf("Service %s not found in config, but will try to start", service))
+			count = 1
+		}
+		servicesToStart[service] = count
+	}
 
-		if _, err := os.Stat(binFullPath); err != nil {
-			PrintErr(fmt.Errorf("binary not found: %s. Please build first", binFullPath))
+	for service, count := range servicesToStart {
+		binaryPath := Paths.GetBinServiceFullPath(util.BinaryWithExtension(service))
+
+		if _, err := os.Stat(binaryPath); err != nil {
+			PrintErr(fmt.Errorf("service executable not found: %s. Please build first", binaryPath))
 			continue
 		}
 
-		for i := 0; i < count; i++ {
+		for i := range count {
 			configPath := Paths.Config
 			if os.Getenv(DeploymentType) == KUBERNETES {
 				configPath = Paths.K8sConfig
 			}
 			args := []string{"-i", strconv.Itoa(i), "-c", configPath}
-			cmd := NewCmd(binFullPath).
+			cmd := NewCmd(binaryPath).
 				WithArgs(args...).
-				WithDir(Paths.OutputHostBin).
+				WithDir(Paths.OutputHostBinService).
 				WithStdout(GetSharedLogFileWithoutError()).
 				WithStderr(GetSharedLogFileWithoutError())
 			PrintBlue(fmt.Sprintf("Starting %s", cmd.String()))
 			if err := cmd.Start(); err != nil {
-				return fmt.Errorf("failed to start %s with args %v: %v", binFullPath, args, err)
+				return fmt.Errorf("failed to start service %s with args %v: %v", binaryPath, args, err)
 			}
 		}
 	}
@@ -67,22 +67,22 @@ func StartBinaries(specificBinaries ...string) error {
 }
 
 // StartTools starts all tool binaries or specified ones.
-func StartTools(specificTools ...string) error {
-	var toolsToStart []string
-	if len(specificTools) > 0 {
-		for _, tool := range specificTools {
-			found := slices.Contains(toolBinaries, tool)
-			if !found {
-				PrintYellow(fmt.Sprintf("Tool %s not found in config, but will try to start", tool))
-			}
-			toolsToStart = append(toolsToStart, tool)
+func StartTools(tools []string) error {
+	if len(tools) == 0 {
+		return errors.New("must specify at least one tool")
+	}
+
+	toolsToStart := make([]string, 0)
+	for _, tool := range tools {
+		found := slices.Contains(startConfig.Tools, tool)
+		if !found {
+			PrintYellow(fmt.Sprintf("Tool %s not found in config, but will try to start", tool))
 		}
-	} else {
-		toolsToStart = toolBinaries
+		toolsToStart = append(toolsToStart, tool)
 	}
 
 	for _, tool := range toolsToStart {
-		toolFullPath := GetBinToolsFullPath(tool)
+		toolFullPath := Paths.GetBinToolFullPath(util.BinaryWithExtension(tool))
 
 		if _, err := os.Stat(toolFullPath); err != nil {
 			PrintErr(fmt.Errorf("tool not found: %s. please build first", toolFullPath))
@@ -96,7 +96,7 @@ func StartTools(specificTools ...string) error {
 
 		cmd := NewCmd(toolFullPath).
 			WithArgs("-c", configPath).
-			WithDir(Paths.OutputHostBinTools).
+			WithDir(Paths.OutputHostBinTool).
 			WithStdout(GetSharedLogFileWithoutError()).
 			WithStderr(GetSharedLogFileWithoutError())
 		PrintBlue(fmt.Sprintf("Starting %s", cmd.String()))
@@ -110,41 +110,41 @@ func StartTools(specificTools ...string) error {
 	return nil
 }
 
-// KillExistBinaries iterates over all binary files and kills their corresponding processes.
-func KillExistBinaries() error {
+// KillExistingServices kills all configured service processes.
+func KillExistingServices() error {
 	var paths []string
-	for binary := range serviceBinaries {
-		fullPath := GetBinFullPath(binary)
+	for service := range startConfig.Services {
+		fullPath := Paths.GetBinServiceFullPath(util.BinaryWithExtension(service))
 		paths = append(paths, fullPath)
 	}
 	return BatchKillExistBinaries(paths)
 }
 
-// CheckBinariesStop checks if all binary files have stopped and returns an error if there are any binaries still running.
-func CheckBinariesStop() error {
-	var runningBinaries []string
+// CheckServicesStopped returns an error if any configured services are still running.
+func CheckServicesStopped() error {
+	var runningServices []string
 
 	ps, err := FetchProcesses()
 	if err != nil {
 		return err
 	}
 
-	for binary := range serviceBinaries {
-		fullPath := GetBinFullPath(binary)
+	for service := range startConfig.Services {
+		fullPath := Paths.GetBinServiceFullPath(util.BinaryWithExtension(service))
 		if CheckProcessInMap(ps, fullPath) {
-			runningBinaries = append(runningBinaries, binary)
+			runningServices = append(runningServices, service)
 		}
 	}
 
-	if len(runningBinaries) > 0 {
-		return fmt.Errorf("the following binaries are still running: %s", strings.Join(runningBinaries, ", "))
+	if len(runningServices) > 0 {
+		return fmt.Errorf("the following services are still running: %s", strings.Join(runningServices, ", "))
 	}
 
 	return nil
 }
 
-// CheckBinariesRunning checks if all binary files are running as expected and returns any errors encountered.
-func CheckBinariesRunning() error {
+// CheckServicesRunning checks whether all configured services are running as expected.
+func CheckServicesRunning() error {
 	var errorMessages []string
 
 	ps, err := FetchProcesses()
@@ -152,11 +152,11 @@ func CheckBinariesRunning() error {
 		return err
 	}
 
-	for binary, expectedCount := range serviceBinaries {
-		fullPath := GetBinFullPath(binary)
+	for service, expectedCount := range startConfig.Services {
+		fullPath := Paths.GetBinServiceFullPath(util.BinaryWithExtension(service))
 		err := CheckProcessNames(fullPath, expectedCount, ps)
 		if err != nil {
-			errorMessages = append(errorMessages, fmt.Sprintf("binary %s is not running as expected: %v", binary, err))
+			errorMessages = append(errorMessages, fmt.Sprintf("service %s is not running as expected: %v", service, err))
 		}
 	}
 
@@ -167,15 +167,14 @@ func CheckBinariesRunning() error {
 	return nil
 }
 
-// PrintListenedPortsByBinaries iterates over all binary files and prints the ports they are listening on.
-func PrintListenedPortsByBinaries() error {
+// PrintListenedPortsByServices prints the ports listened to by configured services.
+func PrintListenedPortsByServices() error {
 	ps, err := FindPIDsByBinaryPath()
 	if err != nil {
 		return err
 	}
-	for binary := range serviceBinaries {
-		basePath := GetBinFullPath(binary)
-		fullPath := basePath
+	for service := range startConfig.Services {
+		fullPath := Paths.GetBinServiceFullPath(util.BinaryWithExtension(service))
 		PrintBinaryPorts(fullPath, ps)
 	}
 	return nil

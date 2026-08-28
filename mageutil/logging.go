@@ -9,8 +9,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/openimsdk/gomake/internal/util"
 	"github.com/pterm/pterm"
+
+	"github.com/openimsdk/gomake/internal/util"
 )
 
 const (
@@ -50,7 +51,7 @@ func logFilePath() (string, error) {
 		return "", fmt.Errorf("paths are not initialized")
 	}
 
-	logDir := strings.TrimSpace(Paths.OutputLogs)
+	logDir := strings.TrimSpace(Paths.OutputLog)
 	if logDir == "" {
 		return "", fmt.Errorf("log directory is empty")
 	}

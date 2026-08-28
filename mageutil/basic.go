@@ -3,20 +3,20 @@ package mageutil
 import (
 	"fmt"
 	"os"
-	"runtime"
-	"strings"
 	"time"
 
+	"github.com/openimsdk/gomake/internal/rlimit"
 	"github.com/openimsdk/gomake/internal/util"
+	"github.com/openimsdk/tools/utils/datautil"
 )
 
 const checkDelay = 3 * time.Second
 
-func CheckAndReportBinariesStatus() error {
-	if err := InitForSSC(); err != nil {
+func CheckAndReportServicesStatus() error {
+	if err := LoadStartConfig(); err != nil {
 		return err
 	}
-	err := CheckBinariesRunning()
+	err := CheckServicesRunning()
 	if err != nil {
 		return fmt.Errorf("some programs are not running properly: %w", err)
 	}
@@ -24,19 +24,19 @@ func CheckAndReportBinariesStatus() error {
 	PrintGreen(fmt.Sprintf("Waiting for %v to check listened ports...", checkDelay))
 	time.Sleep(checkDelay)
 	PrintBlue("Display details of the ports listened to by the service:")
-	err = PrintListenedPortsByBinaries()
+	err = PrintListenedPortsByServices()
 	if err != nil {
-		return fmt.Errorf("PrintListenedPortsByBinaries error: %w", err)
+		return fmt.Errorf("PrintListenedPortsByServices error: %w", err)
 	}
 	return nil
 }
 
-func StopAndCheckBinaries() error {
-	if err := InitForSSC(); err != nil {
+func StopAndCheckServices() error {
+	if err := LoadStartConfig(); err != nil {
 		return err
 	}
-	PrintErr(KillExistBinaries())
-	err := attemptCheckBinaries()
+	PrintErr(KillExistingServices())
+	err := ensureAllServicesStopped()
 	if err != nil {
 		return err
 	}
@@ -44,11 +44,11 @@ func StopAndCheckBinaries() error {
 	return nil
 }
 
-func attemptCheckBinaries() error {
+func ensureAllServicesStopped() error {
 	const maxAttempts = 15
 	var err error
-	for i := 0; i < maxAttempts; i++ {
-		err = CheckBinariesStop()
+	for i := range maxAttempts {
+		err = CheckServicesStopped()
 		if err == nil {
 			return nil
 		}
@@ -61,104 +61,75 @@ func attemptCheckBinaries() error {
 	return fmt.Errorf("already waited for %d seconds, some services have still not stopped", maxAttempts)
 }
 
-func StartToolsAndServices(binaries []string, pathOpts *PathOptions) error {
+func StartToolsAndServices(tools []string, services []string, pathOpts *PathOptions) error {
 	if pathOpts != nil {
 		if err := UpdateGlobalPaths(pathOpts); err != nil {
 			return fmt.Errorf("failed to update paths: %w", err)
 		}
 	}
 
-	if len(binaries) > 0 {
-		PrintBlue(fmt.Sprintf("Starting specified binaries: %v", binaries))
+	if err := LoadStartConfig(); err != nil {
+		return err
+	}
+	if err := rlimit.SetMaxOpenFiles(startConfig.MaxFileDescriptors); err != nil {
+		return err
+	}
 
-		var cmdBinaries, toolsBinaries []string
-
-		for _, binary := range binaries {
-			if isExecutableFile(GetBinFullPath(binary)) {
-				if runtime.GOOS == "windows" {
-					binary += ".exe"
-				}
-				cmdBinaries = append(cmdBinaries, binary)
-			}
-			if isExecutableFile(GetBinToolsFullPath(binary)) {
-				if runtime.GOOS == "windows" {
-					binary += ".exe"
-				}
-				toolsBinaries = append(toolsBinaries, binary)
+	var toolsToStart, servicesToStart []string
+	if len(tools) == 0 && len(services) == 0 {
+		toolsToStart = startConfig.Tools
+		servicesToStart = datautil.Keys(startConfig.Services)
+	} else {
+		for _, tool := range tools {
+			if util.IsExecutableFile(Paths.GetBinToolFullPath(util.BinaryWithExtension(tool))) {
+				toolsToStart = append(toolsToStart, tool)
+			} else {
+				PrintErr(fmt.Errorf("tool %s is not executable", tool))
 			}
 		}
-
-		if len(cmdBinaries) == 0 && len(toolsBinaries) == 0 {
-			PrintYellow("No valid executable binaries found to start. Please build first.")
-			return nil
-		}
-
-		PrintBlue(fmt.Sprintf("Cmd binaries to start: %v", cmdBinaries))
-		PrintBlue(fmt.Sprintf("Tools binaries to start: %v", toolsBinaries))
-
-		if len(toolsBinaries) > 0 {
-			PrintBlue("Starting specified tools...")
-			if err := StartTools(toolsBinaries...); err != nil {
-				return fmt.Errorf("failed to start specified tools: %w", err)
+		for _, service := range services {
+			if util.IsExecutableFile(Paths.GetBinServiceFullPath(util.BinaryWithExtension(service))) {
+				servicesToStart = append(servicesToStart, service)
+			} else {
+				PrintErr(fmt.Errorf("service %s is not executable", service))
 			}
-			PrintGreen("Specified tools executed successfully")
 		}
+	}
 
-		if len(cmdBinaries) > 0 {
-			PrintErr(KillExistBinaries())
-			err := attemptCheckBinaries()
-			if err != nil {
-				return fmt.Errorf("some services running, details are as follows, abort start %w", err)
-			}
-			err = StartBinaries(cmdBinaries...)
-			if err != nil {
-				return fmt.Errorf("failed to start specified binaries: %w", err)
-			}
-			return CheckAndReportBinariesStatus()
-		}
+	if len(toolsToStart) == 0 && len(servicesToStart) == 0 {
+		PrintYellow("No valid services or tools found to start. Please build first.")
 		return nil
 	}
 
-	PrintBlue("Starting tools primarily involves component verification and other preparatory tasks.")
-	if err := StartTools(); err != nil {
-		return fmt.Errorf("some tools failed to start, details are as follows, abort start: %w", err)
-	}
-	PrintGreen("All tools executed successfully")
+	PrintBlue(fmt.Sprintf("Services to start: %v", servicesToStart))
+	PrintBlue(fmt.Sprintf("Tools to start: %v", toolsToStart))
 
-	PrintErr(KillExistBinaries())
-	err := attemptCheckBinaries()
+	if len(toolsToStart) > 0 {
+		PrintBlue("Starting tools primarily involves component verification and other preparatory tasks.")
+		if err := StartTools(toolsToStart); err != nil {
+			return fmt.Errorf("some tools failed to start, details are as follows, abort start: %w", err)
+		}
+		PrintGreen("All tools executed successfully")
+	}
+
+	PrintErr(KillExistingServices())
+	err := ensureAllServicesStopped()
 	if err != nil {
 		return fmt.Errorf("some services running, details are as follows, abort start %w", err)
 	}
-	err = StartBinaries()
-	if err != nil {
-		return fmt.Errorf("failed to start all binaries %w", err)
+
+	if len(servicesToStart) > 0 {
+		err = StartServices(servicesToStart)
+		if err != nil {
+			return fmt.Errorf("failed to start all services %w", err)
+		}
+		return CheckAndReportServicesStatus()
 	}
-	return CheckAndReportBinariesStatus()
+
+	return nil
 }
 
-func isExecutableFile(filePath string) bool {
-	if runtime.GOOS == "windows" && !strings.HasSuffix(strings.ToLower(filePath), ".exe") {
-		filePath += ".exe"
-	}
-
-	info, err := os.Stat(filePath)
-	if err != nil {
-		return false
-	}
-
-	if !info.Mode().IsRegular() {
-		return false
-	}
-
-	if runtime.GOOS == "windows" {
-		return true
-	}
-
-	return info.Mode()&0111 != 0
-}
-
-func Build(binaries []string, pathOpts *PathOptions, buildOpt *BuildOptions) error {
+func Build(services []string, tools []string, pathOpts *PathOptions, buildOpt *BuildOptions) error {
 	resolvedBuildOpt := ResolveBuildOptions(buildOpt, &BuildOptions{
 		CgoEnabled: util.GetEnvWithNoErr[string]("CGO_ENABLED"),
 		Release:    util.GetEnvWithNoErr[bool]("RELEASE"),
@@ -166,19 +137,19 @@ func Build(binaries []string, pathOpts *PathOptions, buildOpt *BuildOptions) err
 		Platforms:  util.GetEnvWithNoErr[[]string]("PLATFORMS"),
 	})
 
-	if _, err := os.Stat(StartConfigFile); err == nil {
-		if err := InitForSSC(); err != nil {
-			return err
-		}
-	}
-
 	if pathOpts != nil {
 		if err := UpdateGlobalPaths(pathOpts); err != nil {
 			return fmt.Errorf("failed to update paths: %w", err)
 		}
 	}
 
-	compileBinaries := getBinaries(binaries)
+	if _, err := os.Stat(StartConfigFile); err == nil {
+		if err := LoadStartConfig(); err != nil {
+			return err
+		}
+	}
+
+	serviceTargets, toolTargets := resolveCompileTargets(services, tools)
 	if cgoEnabled := resolvedBuildOpt.GetCgoEnabled(); cgoEnabled != "" {
 		PrintBlue(fmt.Sprintf("CGO_ENABLED %s", cgoEnabled))
 	}
@@ -191,9 +162,12 @@ func Build(binaries []string, pathOpts *PathOptions, buildOpt *BuildOptions) err
 		platforms = []string{platform}
 	}
 	for _, platform := range platforms {
-		if err := CompileForPlatform(resolvedBuildOpt, platform, compileBinaries); err != nil {
+		if err := CompileForPlatform(resolvedBuildOpt, platform, serviceTargets, toolTargets); err != nil {
 			return err
 		}
+	}
+	if err := createStartConfigYML(serviceTargets, toolTargets); err != nil {
+		return err
 	}
 	PrintGreen("All specified binaries under cmd and tools were successfully compiled.")
 	return nil

@@ -1,5 +1,5 @@
-serviceBinaries:
+services:
   microservice-test: 1
-toolBinaries:
+tools:
   - helloworld
 maxFileDescriptors: 10000

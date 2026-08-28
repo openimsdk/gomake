@@ -26,30 +26,30 @@ const (
 	TmpDir       = "tmp"
 	ExportDir    = "export"
 	ArchiveDir   = "archive"
-	LogsDir      = "logs"
+	LogDir       = "logs"
 	BinDir       = "bin"
 	PlatformsDir = "platforms"
 )
 
 // PathConfig represents the path configuration structure
 type PathConfig struct {
-	Root               string
-	Config             string
-	K8sConfig          string
-	Output             string
-	OutputTools        string
-	OutputTmp          string
-	OutputExport       string
-	OutputArchive      string
-	OutputLogs         string
-	OutputBin          string
-	OutputBinPath      string
-	OutputBinToolPath  string
-	OutputHostBin      string
-	OutputHostBinTools string
+	Root                 string
+	Config               string
+	K8sConfig            string
+	Output               string
+	OutputTools          string
+	OutputTmp            string
+	OutputExport         string
+	OutputArchive        string
+	OutputLog            string
+	OutputBin            string
+	OutputBinServicePath string
+	OutputBinToolPath    string
+	OutputHostBinService string
+	OutputHostBinTool    string
 
-	SrcDir   string // Source cmd directory
-	ToolsDir string // Source tools directory
+	Cmd   string // Source cmd directory
+	Tools string // Source tools directory
 }
 
 type PathOptions struct {
@@ -109,12 +109,12 @@ func NewPathConfig(opts *PathOptions) (*PathConfig, error) {
 	}
 
 	config := &PathConfig{
-		Root:     rootDir,
-		SrcDir:   srcDir,
-		ToolsDir: toolsDir,
+		Root: rootDir,
 	}
 
 	// Set base paths
+	config.Cmd = config.joinPath(config.Root, srcDir)
+	config.Tools = config.joinPath(config.Root, toolsDir)
 	config.Config = config.joinPath(config.Root, configDir)
 	config.Output = config.joinPath(config.Root, outputDir)
 
@@ -123,17 +123,17 @@ func NewPathConfig(opts *PathOptions) (*PathConfig, error) {
 	config.OutputTmp = config.joinPath(config.Output, TmpDir)
 	config.OutputExport = config.joinPath(config.Output, ExportDir)
 	config.OutputArchive = config.joinPath(config.Output, ArchiveDir)
-	config.OutputLogs = config.joinPath(config.Output, LogsDir)
+	config.OutputLog = config.joinPath(config.Output, LogDir)
 	config.OutputBin = config.joinPath(config.Output, BinDir)
 
 	// Set binary file paths
-	config.OutputBinPath = config.joinPath(config.Output, BinDir, PlatformsDir)
+	config.OutputBinServicePath = config.joinPath(config.Output, BinDir, PlatformsDir)
 	config.OutputBinToolPath = config.joinPath(config.Output, BinDir, ToolsDir)
 
 	// Set host-specific paths
 	osArch := OsArch()
-	config.OutputHostBin = config.joinPath(config.OutputBinPath, osArch)
-	config.OutputHostBinTools = config.joinPath(config.OutputBinToolPath, osArch)
+	config.OutputHostBinService = config.joinPath(config.OutputBinServicePath, osArch)
+	config.OutputHostBinTool = config.joinPath(config.OutputBinToolPath, osArch)
 
 	// Handle Kubernetes configuration
 	if os.Getenv(DeploymentType) == KUBERNETES {
@@ -168,8 +168,8 @@ func UpdateGlobalPaths(opts *PathOptions) error {
 	PrintBlue(fmt.Sprintf("Output: %s", Paths.Output))
 	PrintBlue(fmt.Sprintf("Config: %s", Paths.Config))
 
-	PrintBlue(fmt.Sprintf("SrcDir: %s", Paths.SrcDir))
-	PrintBlue(fmt.Sprintf("ToolsDir: %s", Paths.ToolsDir))
+	PrintBlue(fmt.Sprintf("SrcDir: %s", Paths.Cmd))
+	PrintBlue(fmt.Sprintf("ToolsDir: %s", Paths.Tools))
 
 	PrintGreen("======== Global paths updated successfully ========")
 	return nil
@@ -190,12 +190,12 @@ func (p *PathConfig) createDirectories() error {
 		p.OutputTmp,
 		p.OutputExport,
 		p.OutputArchive,
-		p.OutputLogs,
+		p.OutputLog,
 		p.OutputBin,
-		p.OutputBinPath,
+		p.OutputBinServicePath,
 		p.OutputBinToolPath,
-		p.OutputHostBin,
-		p.OutputHostBinTools,
+		p.OutputHostBinService,
+		p.OutputHostBinTool,
 	}
 
 	for _, dir := range dirs {
@@ -211,23 +211,14 @@ func (p *PathConfig) createDirIfNotExist(dir string) error {
 	return os.MkdirAll(dir, 0755)
 }
 
-// GetBinFullPath returns the full path for a binary file
-func (p *PathConfig) GetBinFullPath(binName string) string {
-	return filepath.Join(p.OutputHostBin, binName)
+// GetBinServiceFullPath returns the full path for a binary file
+func (p *PathConfig) GetBinServiceFullPath(binName string) string {
+	return filepath.Join(p.OutputHostBinService, binName)
 }
 
-// GetBinToolsFullPath GetToolFullPath returns the full path for a tool
-func (p *PathConfig) GetBinToolsFullPath(toolName string) string {
-	return filepath.Join(p.OutputHostBinTools, toolName)
-}
-
-// GetBinFullPath Compatibility: maintain original global functions
-func GetBinFullPath(binName string) string {
-	return Paths.GetBinFullPath(binName)
-}
-
-func GetBinToolsFullPath(toolName string) string {
-	return Paths.GetBinToolsFullPath(toolName)
+// GetBinToolFullPath GetToolFullPath returns the full path for a tool
+func (p *PathConfig) GetBinToolFullPath(toolName string) string {
+	return filepath.Join(p.OutputHostBinTool, toolName)
 }
 
 func EnsureRootRelPaths(paths ...string) (map[string]string, error) {

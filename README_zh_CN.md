@@ -6,12 +6,10 @@
 
 ### 准备工作
 
-1. 请将以下文件从当前目录复制到项目的根目录，注意除了`README`文件外，共有5个文件需要复制：
+1. 请将以下文件从当前目录复制到项目的根目录：
     - `bootstrap.bat`
     - `bootstrap.sh`
     - `magefile.go`
-    - `magefile_unix.go`
-    - `magefile_windows.go`
 2. 项目根目录下需要包含三个目录：`cmd`、`tools`和`config`。
     - `cmd` 目录专门用于存放那些作为后台服务运行的应用的启动代码。
     - `tools`目录用于存放那些作为工具应用（不以后台服务形式运行）的启动代码。
@@ -28,7 +26,8 @@
 
 ### 编译项目
 
-- 执行`mage`或`mage build`来编译项目。
+- 执行`mage`或`mage build`来编译全部服务和工具。
+- 使用`mage build -services=microservice-test`编译指定服务，使用`mage build -tools=helloworld`编译指定工具。多个名称使用逗号分隔。
 - 编译完成后，二进制文件将生成在`_output/bin/platforms/<操作系统>/<架构>`目录下，其中二进制文件的命名规则为对应的`main.go`所在的目录名。例如：
     - `_output/bin/platforms/linux/amd64/microservice-test`
     - `_output/bin/tools/linux/amd64/helloworld`
@@ -39,16 +38,18 @@
 1. 执行完 `mage` 编译后，系统会自动生成 `start-config.yml` 文件，指定服务和工具相关配置，您可以对该文件进行编辑。例如：
 
     ```yaml
-    serviceBinaries:
+    services:
       microservice-test: 1
-    toolBinaries:
+    tools:
       - helloworld
     maxFileDescriptors: 10000
     ```
     
     **注意：**确保服务名和工具名与 `cmd` 和 `tools` 目录下的子目录名称相匹配。服务名后的数字代表该服务启动的实例数量。
     
-3. 执行`mage start`来启动服务和工具。
+2. 执行`mage start`来启动`start-config.yml`中配置的服务和工具。
+
+   - 使用`mage start -services=microservice-test`或`mage start -tools=helloworld`启动指定服务或工具。
    
     - 工具将以同步方式执行，如果工具执行失败（退出代码非零），则整个启动过程中断。
     - 服务将以异步方式启动。
@@ -73,4 +74,3 @@
 - **Windows**
 
   ![Compiling with mage on Windows](docs/images/windows-mages.jpg)
-  
