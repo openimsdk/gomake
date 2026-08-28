@@ -81,14 +81,14 @@ func StartToolsAndServices(tools []string, services []string, pathOpts *PathOpti
 		servicesToStart = datautil.Keys(startConfig.Services)
 	} else {
 		for _, tool := range tools {
-			if util.IsExecutableFile(Paths.GetBinToolFullPath(util.BinaryWithExtension(tool))) {
+			if util.IsExecutableFile(Paths.GetBinToolFullPath(util.BinaryWithRuntimeExtension(tool))) {
 				toolsToStart = append(toolsToStart, tool)
 			} else {
 				PrintErr(fmt.Errorf("tool %s is not executable", tool))
 			}
 		}
 		for _, service := range services {
-			if util.IsExecutableFile(Paths.GetBinServiceFullPath(util.BinaryWithExtension(service))) {
+			if util.IsExecutableFile(Paths.GetBinServiceFullPath(util.BinaryWithRuntimeExtension(service))) {
 				servicesToStart = append(servicesToStart, service)
 			} else {
 				PrintErr(fmt.Errorf("service %s is not executable", service))

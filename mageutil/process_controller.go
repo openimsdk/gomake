@@ -15,7 +15,7 @@ import (
 func StopServices() error {
 	var errs []error
 	for service := range startConfig.Services {
-		fullPath := Paths.GetBinServiceFullPath(util.BinaryWithExtension(service))
+		fullPath := Paths.GetBinServiceFullPath(util.BinaryWithRuntimeExtension(service))
 		errs = append(errs, KillExistBinary(fullPath))
 	}
 
@@ -39,7 +39,7 @@ func StartServices(services []string) error {
 	}
 
 	for service, count := range servicesToStart {
-		binaryPath := Paths.GetBinServiceFullPath(util.BinaryWithExtension(service))
+		binaryPath := Paths.GetBinServiceFullPath(util.BinaryWithRuntimeExtension(service))
 
 		if _, err := os.Stat(binaryPath); err != nil {
 			PrintErr(fmt.Errorf("service executable not found: %s. Please build first", binaryPath))
@@ -82,7 +82,7 @@ func StartTools(tools []string) error {
 	}
 
 	for _, tool := range toolsToStart {
-		toolFullPath := Paths.GetBinToolFullPath(util.BinaryWithExtension(tool))
+		toolFullPath := Paths.GetBinToolFullPath(util.BinaryWithRuntimeExtension(tool))
 
 		if _, err := os.Stat(toolFullPath); err != nil {
 			PrintErr(fmt.Errorf("tool not found: %s. please build first", toolFullPath))
@@ -114,7 +114,7 @@ func StartTools(tools []string) error {
 func KillExistingServices() error {
 	var paths []string
 	for service := range startConfig.Services {
-		fullPath := Paths.GetBinServiceFullPath(util.BinaryWithExtension(service))
+		fullPath := Paths.GetBinServiceFullPath(util.BinaryWithRuntimeExtension(service))
 		paths = append(paths, fullPath)
 	}
 	return BatchKillExistBinaries(paths)
@@ -130,7 +130,7 @@ func CheckServicesStopped() error {
 	}
 
 	for service := range startConfig.Services {
-		fullPath := Paths.GetBinServiceFullPath(util.BinaryWithExtension(service))
+		fullPath := Paths.GetBinServiceFullPath(util.BinaryWithRuntimeExtension(service))
 		if CheckProcessInMap(ps, fullPath) {
 			runningServices = append(runningServices, service)
 		}
@@ -153,7 +153,7 @@ func CheckServicesRunning() error {
 	}
 
 	for service, expectedCount := range startConfig.Services {
-		fullPath := Paths.GetBinServiceFullPath(util.BinaryWithExtension(service))
+		fullPath := Paths.GetBinServiceFullPath(util.BinaryWithRuntimeExtension(service))
 		err := CheckProcessNames(fullPath, expectedCount, ps)
 		if err != nil {
 			errorMessages = append(errorMessages, fmt.Sprintf("service %s is not running as expected: %v", service, err))
@@ -174,7 +174,7 @@ func PrintListenedPortsByServices() error {
 		return err
 	}
 	for service := range startConfig.Services {
-		fullPath := Paths.GetBinServiceFullPath(util.BinaryWithExtension(service))
+		fullPath := Paths.GetBinServiceFullPath(util.BinaryWithRuntimeExtension(service))
 		PrintBinaryPorts(fullPath, ps)
 	}
 	return nil
