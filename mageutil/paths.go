@@ -1,9 +1,15 @@
 package mageutil
 
 import (
+	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
+
+	"github.com/openimsdk/gomake/internal/util"
+	"github.com/openimsdk/tools/utils/datautil"
 )
 
 // Path constants
@@ -12,45 +18,47 @@ const (
 	DeploymentType      = "DEPLOYMENT_TYPE"
 	KUBERNETES          = "kubernetes"
 
-	// Directory name constants
+	// Directory command constants
 	ConfigDir    = "config"
 	OutputDir    = "_output"
 	SrcDir       = "cmd"
 	ToolsDir     = "tools"
 	TmpDir       = "tmp"
 	ExportDir    = "export"
-	LogsDir      = "logs"
+	ArchiveDir   = "archive"
+	LogDir       = "logs"
 	BinDir       = "bin"
 	PlatformsDir = "platforms"
 )
 
 // PathConfig represents the path configuration structure
 type PathConfig struct {
-	Root               string
-	Config             string
-	K8sConfig          string
-	Output             string
-	OutputTools        string
-	OutputTmp          string
-	OutputExport       string
-	OutputLogs         string
-	OutputBin          string
-	OutputBinPath      string
-	OutputBinToolPath  string
-	OutputHostBin      string
-	OutputHostBinTools string
+	Root                 string
+	Config               string
+	K8sConfig            string
+	Output               string
+	OutputTools          string
+	OutputTmp            string
+	OutputExport         string
+	OutputArchive        string
+	OutputLog            string
+	OutputBin            string
+	OutputBinServicePath string
+	OutputBinToolPath    string
+	OutputHostBinService string
+	OutputHostBinTool    string
 
-	SrcDir   string // Source cmd directory
-	ToolsDir string // Source tools directory
+	Cmd   string // Source cmd directory
+	Tools string // Source tools directory
 }
 
 type PathOptions struct {
 	RootDir   *string // Custom root directory, default is current working directory(./)
-	OutputDir *string // Custom output directory name, default is "_output"
-	ConfigDir *string // Custom config directory name, default is "config"
+	OutputDir *string // Custom output directory command, default is "_output"
+	ConfigDir *string // Custom config directory command, default is "config"
 
-	SrcDir   *string // Custom cmd source directory name, default is "cmd"
-	ToolsDir *string // Custom tools source directory name, default is "tools"
+	SrcDir   *string // Custom cmd source directory command, default is "cmd"
+	ToolsDir *string // Custom tools source directory command, default is "tools"
 }
 
 var Paths *PathConfig
@@ -101,12 +109,12 @@ func NewPathConfig(opts *PathOptions) (*PathConfig, error) {
 	}
 
 	config := &PathConfig{
-		Root:     rootDir,
-		SrcDir:   srcDir,
-		ToolsDir: toolsDir,
+		Root: rootDir,
 	}
 
 	// Set base paths
+	config.Cmd = config.joinPath(config.Root, srcDir)
+	config.Tools = config.joinPath(config.Root, toolsDir)
 	config.Config = config.joinPath(config.Root, configDir)
 	config.Output = config.joinPath(config.Root, outputDir)
 
@@ -114,17 +122,18 @@ func NewPathConfig(opts *PathOptions) (*PathConfig, error) {
 	config.OutputTools = config.joinPath(config.Output, ToolsDir)
 	config.OutputTmp = config.joinPath(config.Output, TmpDir)
 	config.OutputExport = config.joinPath(config.Output, ExportDir)
-	config.OutputLogs = config.joinPath(config.Output, LogsDir)
+	config.OutputArchive = config.joinPath(config.Output, ArchiveDir)
+	config.OutputLog = config.joinPath(config.Output, LogDir)
 	config.OutputBin = config.joinPath(config.Output, BinDir)
 
 	// Set binary file paths
-	config.OutputBinPath = config.joinPath(config.Output, BinDir, PlatformsDir)
+	config.OutputBinServicePath = config.joinPath(config.Output, BinDir, PlatformsDir)
 	config.OutputBinToolPath = config.joinPath(config.Output, BinDir, ToolsDir)
 
 	// Set host-specific paths
 	osArch := OsArch()
-	config.OutputHostBin = config.joinPath(config.OutputBinPath, osArch)
-	config.OutputHostBinTools = config.joinPath(config.OutputBinToolPath, osArch)
+	config.OutputHostBinService = config.joinPath(config.OutputBinServicePath, osArch)
+	config.OutputHostBinTool = config.joinPath(config.OutputBinToolPath, osArch)
 
 	// Handle Kubernetes configuration
 	if os.Getenv(DeploymentType) == KUBERNETES {
@@ -159,8 +168,8 @@ func UpdateGlobalPaths(opts *PathOptions) error {
 	PrintBlue(fmt.Sprintf("Output: %s", Paths.Output))
 	PrintBlue(fmt.Sprintf("Config: %s", Paths.Config))
 
-	PrintBlue(fmt.Sprintf("SrcDir: %s", Paths.SrcDir))
-	PrintBlue(fmt.Sprintf("ToolsDir: %s", Paths.ToolsDir))
+	PrintBlue(fmt.Sprintf("SrcDir: %s", Paths.Cmd))
+	PrintBlue(fmt.Sprintf("ToolsDir: %s", Paths.Tools))
 
 	PrintGreen("======== Global paths updated successfully ========")
 	return nil
@@ -180,12 +189,13 @@ func (p *PathConfig) createDirectories() error {
 		p.OutputTools,
 		p.OutputTmp,
 		p.OutputExport,
-		p.OutputLogs,
+		p.OutputArchive,
+		p.OutputLog,
 		p.OutputBin,
-		p.OutputBinPath,
+		p.OutputBinServicePath,
 		p.OutputBinToolPath,
-		p.OutputHostBin,
-		p.OutputHostBinTools,
+		p.OutputHostBinService,
+		p.OutputHostBinTool,
 	}
 
 	for _, dir := range dirs {
@@ -201,21 +211,103 @@ func (p *PathConfig) createDirIfNotExist(dir string) error {
 	return os.MkdirAll(dir, 0755)
 }
 
-// GetBinFullPath returns the full path for a binary file
-func (p *PathConfig) GetBinFullPath(binName string) string {
-	return filepath.Join(p.OutputHostBin, binName)
+// GetBinServiceFullPath returns the full path for a binary file
+func (p *PathConfig) GetBinServiceFullPath(binName string) string {
+	return filepath.Join(p.OutputHostBinService, binName)
 }
 
-// GetToolFullPath returns the full path for a tool
-func (p *PathConfig) GetBinToolsFullPath(toolName string) string {
-	return filepath.Join(p.OutputHostBinTools, toolName)
+// GetBinToolFullPath GetToolFullPath returns the full path for a tool
+func (p *PathConfig) GetBinToolFullPath(toolName string) string {
+	return filepath.Join(p.OutputHostBinTool, toolName)
 }
 
-// Compatibility: maintain original global functions
-func GetBinFullPath(binName string) string {
-	return Paths.GetBinFullPath(binName)
+func EnsureRootRelPaths(paths ...string) (map[string]string, error) {
+	root := filepath.Clean(Paths.Root)
+	if root == "" {
+		return nil, fmt.Errorf("root path is empty")
+	}
+
+	relPathMap := make(map[string]string)
+	for _, path := range paths {
+		absPath := filepath.Clean(filepath.FromSlash(path))
+		if !filepath.IsAbs(absPath) {
+			absPath = filepath.Join(root, absPath)
+		}
+
+		relPath, err := filepath.Rel(root, absPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get relative path for %s: %v", path, err)
+		}
+		relPathMap[absPath] = filepath.ToSlash(relPath)
+	}
+
+	return relPathMap, nil
 }
 
-func GetBinToolsFullPath(toolName string) string {
-	return Paths.GetBinToolsFullPath(toolName)
+func GetAllRootFilesExcludeIgnore() ([]string, error) {
+	root := Paths.Root
+	if root == "" {
+		return nil, fmt.Errorf("root path is empty")
+	}
+
+	cmdOutput, err := NewCmd("git").
+		WithArgs("ls-files", "-c", "-o", "--exclude-standard", "-z").
+		WithDir(root).
+		Output()
+
+	if err != nil {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			return nil, fmt.Errorf("failed to list root files via git ls-files: %s", strings.TrimSpace(string(exitErr.Stderr)))
+		}
+		return nil, fmt.Errorf("failed to list root files via git ls-files: %v", err)
+	}
+
+	relPaths := make([]string, 0)
+	for _, relPath := range strings.Split(string(cmdOutput), "\x00") {
+		if relPath == "" {
+			continue
+		}
+
+		cleanRelPath := filepath.Clean(filepath.FromSlash(relPath))
+		if cleanRelPath == "." {
+			continue
+		}
+
+		absPath := filepath.Join(root, cleanRelPath)
+		info, statErr := os.Stat(absPath)
+		if statErr != nil {
+			if os.IsNotExist(statErr) {
+				continue
+			}
+			return nil, fmt.Errorf("failed to stat file %s listed by git: %v", absPath, statErr)
+		}
+		if info.IsDir() {
+			continue
+		}
+
+		relPaths = append(relPaths, filepath.ToSlash(cleanRelPath))
+	}
+
+	if len(relPaths) == 0 {
+		return nil, fmt.Errorf("no files found under root %s after applying gitignore rules", root)
+	}
+
+	return relPaths, nil
+}
+
+func GetDefaultExportMappingPaths(exclude []string) (map[string]string, error) {
+	allFiles, err := GetAllRootFilesExcludeIgnore()
+	if err != nil {
+		return nil, err
+	}
+
+	allFilteredFiles := datautil.Filter(allFiles, func(e string) (string, bool) {
+		if util.MatchAnyFilepathGlob(e, exclude) {
+			return "", false
+		}
+		return e, true
+	})
+
+	return EnsureRootRelPaths(allFilteredFiles...)
 }

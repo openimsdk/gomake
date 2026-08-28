@@ -1,19 +1,19 @@
 //go:build !windows
 
-package mageutil
+package priority
 
 import (
 	"syscall"
 )
 
-func SetPriority(pid int, level PriorityLevel) error {
+func Set(pid int, level Level) error {
 	var nice int
 	switch level {
-	case PriorityLow:
+	case Low:
 		nice = 19
-	case PriorityBelowNormal:
+	case BelowNormal:
 		nice = 10
-	case PriorityHigh:
+	case High:
 		nice = -10
 	default:
 		nice = 0

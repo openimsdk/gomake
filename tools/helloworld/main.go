@@ -4,6 +4,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
+
+	"github.com/openimsdk/gomake/mageutil"
 )
 
 func main() {
@@ -12,5 +14,5 @@ func main() {
 	config := flag.String("c", "", "Configuration directory")
 	// Parse the flags
 	flag.Parse()
-	fmt.Printf("This is a helloworld tool. Program: %s, args: -i %d -c %s\n", os.Args[0], *index, *config)
+	mageutil.PrintBlue(fmt.Sprintf("This is a helloworld tool. Program: %s, args: -i %d -c %s", os.Args[0], *index, *config))
 }

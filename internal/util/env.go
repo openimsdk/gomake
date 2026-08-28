@@ -59,6 +59,14 @@ func GetEnv[T any](key string) (*T, error) {
 	}
 }
 
+func GetEnvWithNoErr[T any](key string) *T {
+	value, err := GetEnv[T](key)
+	if err != nil {
+		return nil
+	}
+	return value
+}
+
 func SetEnvs(envMap map[string]string) (func(), error) {
 	oldEnv := make(map[string]string)
 	restore := func() {
@@ -82,4 +90,16 @@ func SetEnvs(envMap map[string]string) (func(), error) {
 		}
 	}
 	return restore, nil
+}
+
+func FlattenEnvs(envs map[string]string) []string {
+	if len(envs) == 0 {
+		return nil
+	}
+
+	flattened := make([]string, 0, len(envs))
+	for k, v := range envs {
+		flattened = append(flattened, k+"="+v)
+	}
+	return flattened
 }

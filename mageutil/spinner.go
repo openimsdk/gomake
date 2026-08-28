@@ -1,58 +1,56 @@
 package mageutil
 
 import (
-	"fmt"
+	"os"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/openimsdk/gomake/internal/util"
+	"github.com/pterm/pterm"
 )
 
-const (
-	ESCEraseLine = "\033[2K"
-)
+const spinnerDelay = 120 * time.Millisecond
 
-var (
-	activeSpinner         atomic.Pointer[Spinner]
-	spinnerFrames         = []string{"|", "/", "-", "\\"}
-	spinnerRenderInterval = 120 * time.Millisecond
-	globalPauseDepth      atomic.Int32
-)
+var activeSpinner atomic.Pointer[Spinner]
 
 type Spinner struct {
+	printer  *pterm.SpinnerPrinter
 	enabled  bool
 	stopOnce sync.Once
-	stopCh   chan struct{}
-	doneCh   chan struct{}
-
-	message atomic.Value
-
-	start time.Time
 }
 
 func NewSpinner(message string) *Spinner {
 	msg := strings.TrimSpace(message)
-
 	s := &Spinner{
-		enabled: util.StdoutIsTerminal(),
-		stopCh:  make(chan struct{}),
-		doneCh:  make(chan struct{}),
-		start:   time.Now(),
+		enabled: util.StderrIsTerminal(),
 	}
-	s.message.Store(msg)
 
 	if !s.enabled {
-		close(s.doneCh)
 		return s
 	}
 
-	inactive := activeSpinner.Swap(s)
-	if inactive != nil {
+	if inactive := activeSpinner.Swap(nil); inactive != nil {
 		inactive.Stop()
 	}
-	go s.run()
+
+	printer, err := pterm.DefaultSpinner.
+		WithWriter(os.Stderr).
+		WithDelay(spinnerDelay).
+		WithRemoveWhenDone(true).
+		WithShowTimer(false).
+		WithStyle(pterm.NewStyle(pterm.FgMagenta)).
+		WithMessageStyle(pterm.NewStyle(pterm.FgMagenta)).
+		WithSequence("|", "/", "-", "\\").
+		Start(msg)
+	if err != nil {
+		s.enabled = false
+		return s
+	}
+
+	s.printer = printer
+	activeSpinner.Store(s)
 	return s
 }
 
@@ -62,7 +60,7 @@ func WithSpinner(message string, fn func()) {
 	fn()
 }
 
-func WithSpinnerE(message string, fn func() error) error {
+func WithSpinnerR[R any](message string, fn func() R) R {
 	spinner := NewSpinner(message)
 	defer spinner.Stop()
 	return fn()
@@ -70,56 +68,30 @@ func WithSpinnerE(message string, fn func() error) error {
 
 func (s *Spinner) Stop() {
 	s.stopOnce.Do(func() {
-		if !s.enabled {
+		if !s.enabled || s.printer == nil {
 			return
 		}
 
-		close(s.stopCh)
-		<-s.doneCh
-		if activeSpinner.CompareAndSwap(s, nil) {
-			fmt.Printf("\r%s", ESCEraseLine)
-		}
+		_ = s.printer.Stop()
+		time.Sleep(s.printer.Delay)
+		clearSpinnerLine()
+		activeSpinner.CompareAndSwap(s, nil)
 	})
 }
 
-func (s *Spinner) run() {
-	defer close(s.doneCh)
-
-	if globalPauseDepth.Load() == 0 {
-		s.render()
+func clearSpinnerLine() {
+	if pterm.RawOutput || !pterm.Output {
+		return
 	}
-
-	timer := time.NewTimer(spinnerRenderInterval)
-	defer timer.Stop()
-
-	for {
-		elapsed := time.Since(s.start)
-		rem := elapsed % spinnerRenderInterval
-		wait := spinnerRenderInterval - rem
-		if wait <= 0 {
-			wait = spinnerRenderInterval
-		}
-		timer.Reset(wait)
-
-		select {
-		case <-s.stopCh:
-			return
-		case <-timer.C:
-			if globalPauseDepth.Load() > 0 {
-				continue
-			}
-			s.render()
-		}
-	}
+	pterm.Fprinto(os.Stderr, strings.Repeat(" ", pterm.GetTerminalWidth()))
+	pterm.Fprinto(os.Stderr)
 }
 
-func (s *Spinner) render() {
-	elapsed := time.Since(s.start)
-	step := int(elapsed / spinnerRenderInterval)
-	frame := spinnerFrames[step%len(spinnerFrames)]
-	msg := s.message.Load().(string)
-
-	fmt.Printf("\r%s%s %s%s", ColorMagenta, frame, msg, ColorReset)
+func (s *Spinner) Refresh() {
+	if !s.enabled || s.printer == nil || !s.printer.IsActive {
+		return
+	}
+	s.printer.UpdateText(s.printer.Text)
 }
 
 func StopSpinner() {
@@ -128,37 +100,8 @@ func StopSpinner() {
 	}
 }
 
-func PauseSpinner() {
-	if sp := activeSpinner.Load(); sp == nil || !sp.enabled {
-		return
+func RefreshSpinner() {
+	if sp := activeSpinner.Load(); sp != nil {
+		sp.Refresh()
 	}
-	globalPauseDepth.Add(1)
-	fmt.Printf("\r%s", ESCEraseLine)
-}
-
-func ResumeSpinner() {
-	if sp := activeSpinner.Load(); sp == nil || !sp.enabled {
-		return
-	}
-
-	for {
-		d := globalPauseDepth.Load()
-		if d <= 0 {
-			return
-		}
-		if globalPauseDepth.CompareAndSwap(d, d-1) {
-			if d-1 == 0 {
-				if sp := activeSpinner.Load(); sp != nil {
-					sp.render()
-				}
-			}
-			return
-		}
-	}
-}
-
-func WithActiveSpinnerPaused(fn func()) {
-	PauseSpinner()
-	defer ResumeSpinner()
-	fn()
 }

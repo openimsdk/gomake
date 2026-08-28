@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/bmatcuk/doublestar/v4"
@@ -22,10 +23,7 @@ func CheckExist(path string) error {
 
 func NormalizeExePath(path string) string {
 	const deletedSuffix = " (deleted)"
-	if strings.HasSuffix(path, deletedSuffix) {
-		return strings.TrimSuffix(path, deletedSuffix)
-	}
-	return path
+	return strings.TrimSuffix(path, deletedSuffix)
 }
 
 func ContainsMainGo(dir string) bool {
@@ -75,7 +73,7 @@ func FindGoModDir(startDir string) string {
 	return ""
 }
 
-func IsExcludedBinaryDir(name string) bool {
+func IsExcludedSourceDir(name string) bool {
 	return strings.HasPrefix(name, ".") || strings.EqualFold(name, "internal")
 }
 
@@ -94,8 +92,8 @@ func MatchAnyFilepathGlob(file string, patterns []string) bool {
 		p = filepath.ToSlash(p)
 		p = strings.TrimPrefix(p, "./")
 
-		if strings.HasSuffix(p, "/") {
-			p = strings.TrimSuffix(p, "/") + "/**"
+		if before, ok := strings.CutSuffix(p, "/"); ok {
+			p = before + "/**"
 		}
 
 		ok, err := doublestar.Match(p, f)
@@ -108,4 +106,21 @@ func MatchAnyFilepathGlob(file string, patterns []string) bool {
 		}
 	}
 	return false
+}
+
+func IsExecutableFile(filePath string) bool {
+	info, err := os.Stat(filePath)
+	if err != nil {
+		return false
+	}
+
+	if !info.Mode().IsRegular() {
+		return false
+	}
+
+	if runtime.GOOS == "windows" && strings.HasSuffix(filePath, ".exe") {
+		return true
+	}
+
+	return info.Mode()&0111 != 0
 }

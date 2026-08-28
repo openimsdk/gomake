@@ -4,7 +4,6 @@ import (
 	"archive/zip"
 	"bufio"
 	"fmt"
-	"github.com/magefile/mage/sh"
 	"io"
 	"net/http"
 	"os"
@@ -12,6 +11,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+
+	"github.com/magefile/mage/sh"
 )
 
 func ensureToolsInstalled() error {
@@ -31,21 +32,21 @@ func ensureToolsInstalled() error {
 
 	for tool, path := range tools {
 		if _, err := exec.LookPath(filepath.Join(targetDir, tool)); err != nil {
-			fmt.Printf("Installing %s to %s...\n", tool, targetDir)
+			PrintBlue(fmt.Sprintf("Installing %s to %s...", tool, targetDir))
 			if err := sh.Run("go", "install", path); err != nil {
 				return fmt.Errorf("failed to install %s: %s", tool, err)
 			}
 		} else {
-			fmt.Printf("%s is already installed in %s.\n", tool, targetDir)
+			PrintGreen(fmt.Sprintf("%s is already installed in %s.", tool, targetDir))
 		}
 	}
 
 	if _, err := exec.LookPath(filepath.Join(targetDir, "protoc")); err == nil {
-		fmt.Println("protoc is already installed.")
+		PrintGreen("protoc is already installed.")
 		return nil
 	}
 
-	fmt.Println("Installing protoc...")
+	PrintBlue("Installing protoc...")
 	return installProtoc(targetDir)
 }
 
@@ -66,7 +67,7 @@ func installProtoc(installDir string) error {
 	fileName := fmt.Sprintf(protocFile, version, osArch)
 	url := baseURL + "/" + fileName
 
-	fmt.Println("URL:", url)
+	PrintBlue(fmt.Sprintf("URL: %s", url))
 
 	resp, err := http.Get(url)
 	if err != nil {
@@ -85,7 +86,7 @@ func installProtoc(installDir string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println("tmp ", tmpFile.Name(), "install  ", installDir)
+	PrintBlue(fmt.Sprintf("tmp %s install %s", tmpFile.Name(), installDir))
 	return unzip(tmpFile.Name(), installDir)
 }
 
@@ -133,28 +134,24 @@ func getProtocArch(archMap map[string]string, goArch string) string {
 
 func Protocol() error {
 	if err := ensureToolsInstalled(); err != nil {
-		fmt.Println("error ", err.Error())
-		os.Exit(1)
+		return err
 	}
 
 	moduleName, err := getModuleNameFromGoMod()
 	if err != nil {
-		fmt.Println("error fetching module name from go.mod: ", err.Error())
-		os.Exit(1)
+		return fmt.Errorf("error fetching module name from go.mod: %w", err)
 	}
 
 	protoPath := "./pkg/protocol"
 	dirs, err := os.ReadDir(protoPath)
 	if err != nil {
-		fmt.Println("error ", err.Error())
-		os.Exit(1)
+		return err
 	}
 
 	for _, dir := range dirs {
 		if dir.IsDir() {
 			if err := compileProtoFiles(protoPath, dir.Name(), moduleName); err != nil {
-				fmt.Println("error ", err.Error())
-				os.Exit(1)
+				return err
 			}
 		}
 	}
@@ -180,7 +177,7 @@ func compileProtoFiles(basePath, dirName, moduleName string) error {
 	}
 
 	// Print which file is being compiled for clarity
-	fmt.Printf("Compiling %s...\n", protoFile)
+	PrintBlue(fmt.Sprintf("Compiling %s...", protoFile))
 
 	// Execute the protoc command
 	if err := sh.Run("protoc", args...); err != nil {
@@ -196,9 +193,9 @@ func fixOmitemptyInDirectory(dir string) error {
 	if err != nil {
 		return fmt.Errorf("failed to list .pb.go files in %s: %s", dir, err)
 	}
-	fmt.Printf("Fixing omitempty in dir  %s...\n", dir)
+	PrintBlue(fmt.Sprintf("Fixing omitempty in dir %s...", dir))
 	for _, file := range files {
-		fmt.Printf("Fixing omitempty in %s...\n", file)
+		PrintBlue(fmt.Sprintf("Fixing omitempty in %s...", file))
 		if err := RemoveOmitemptyFromFile(file); err != nil {
 			return fmt.Errorf("failed to replace omitempty in %s: %s", file, err)
 		}

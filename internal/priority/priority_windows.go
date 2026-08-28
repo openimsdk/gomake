@@ -1,19 +1,19 @@
 //go:build windows
 
-package mageutil
+package priority
 
 import (
 	"golang.org/x/sys/windows"
 )
 
-func SetPriority(pid int, level PriorityLevel) error {
+func Set(pid int, level Level) error {
 	var class uint32
 	switch level {
-	case PriorityLow:
+	case Low:
 		class = windows.IDLE_PRIORITY_CLASS
-	case PriorityBelowNormal:
+	case BelowNormal:
 		class = windows.BELOW_NORMAL_PRIORITY_CLASS
-	case PriorityHigh:
+	case High:
 		class = windows.HIGH_PRIORITY_CLASS
 	default:
 		class = windows.NORMAL_PRIORITY_CLASS

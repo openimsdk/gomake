@@ -6,12 +6,10 @@
 
 ### Preparation
 
-1. Copy the following files from the current directory to the project's root directory, noting that there are 5 files to copy besides the `README` file:
+1. Copy the following files from the current directory to the project's root directory:
    - `bootstrap.bat`
    - `bootstrap.sh`
    - `magefile.go`
-   - `magefile_unix.go`
-   - `magefile_windows.go`
 2. The project's root directory should contain three directories: `cmd`, `tools`, and `config`.
    - The `cmd` directory is specifically for storing the startup code of applications that run as background services.
    - The `tools` directory is for storing the startup code of applications that run as tools (not as background services).
@@ -28,7 +26,8 @@
 
 ### Compiling the Project
 
-- Run `mage` or `mage build` to compile the project.
+- Run `mage` or `mage build` to compile all services and tools.
+- Use `mage build -services=microservice-test` to compile selected services, and `mage build -tools=helloworld` to compile selected tools. Separate multiple names with commas.
 - After compilation, binary files will be generated in the `_output/bin/platforms/<operating system>/<architecture>` directory, with the binary files named after the directory of the corresponding `main.go`. For example:
   - `_output/bin/platforms/linux/amd64/microservice-test`
   - `_output/bin/tools/linux/amd64/helloworld`
@@ -39,16 +38,18 @@
 1. After completing the `mage` compilation, the system will automatically generate a `start-config.yml` file specifying the configuration for services and tools, which you can edit. For example:
 
    ```yaml
-   serviceBinaries:
+   services:
      microservice-test: 1
-   toolBinaries:
+   tools:
      - helloworld
    maxFileDescriptors: 10000
    ```
 
 **Note:** Ensure that the service names and tool names match the names of the subdirectories under the `cmd` and `tools` directories. The number after the service name represents the number of instances of the service to start.
 
-2. Run `mage start` to start the services and tools.
+2. Run `mage start` to start the services and tools configured in `start-config.yml`.
+
+   - Use `mage start -services=microservice-test` or `mage start -tools=helloworld` to start selected services or tools.
 
    - Tools will execute synchronously, and if a tool fails (exits with a non-zero exit code), the entire start-up process will be interrupted.
    - Services will start asynchronously.

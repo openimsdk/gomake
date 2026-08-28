@@ -6,9 +6,12 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
-	"sync/atomic"
+	"sync"
 
+	"github.com/openimsdk/gomake/internal/priority"
 	"github.com/openimsdk/gomake/internal/util"
+
+	"gopkg.in/yaml.v3"
 )
 
 type BuildOptions struct {
@@ -34,60 +37,30 @@ func (opt *BuildOptions) GetPlatforms() []string {
 	return util.NilAsZero(util.NilAsZero(opt).Platforms)
 }
 
-func CompileForPlatform(buildOpt *BuildOptions, platform string, compileBinaries []string) {
-	var cmdBinaries, toolsBinaries []string
+func CompileForPlatform(buildOpt *BuildOptions, platform string, serviceTargets, toolTargets []string) error {
+	PrintBlue(fmt.Sprintf("Cmd binaries: %v", serviceTargets))
+	PrintBlue(fmt.Sprintf("Tools binaries: %v", toolTargets))
 
-	toolsPrefix := Paths.ToolsDir
-	cmdPrefix := Paths.SrcDir
-
-	if Paths.SrcDir == "." {
-		cmdPrefix = ""
-	}
-
-	if toolsPrefix != "" {
-		toolsPrefix += string(filepath.Separator)
-	}
-	if cmdPrefix != "" {
-		cmdPrefix += string(filepath.Separator)
-	}
-
-	for _, binary := range compileBinaries {
-		if toolsPrefix != "" && strings.HasPrefix(binary, toolsPrefix) {
-			toolsBinary := strings.TrimPrefix(binary, toolsPrefix)
-			toolsBinaries = append(toolsBinaries, toolsBinary)
-		} else if cmdPrefix == "" || strings.HasPrefix(binary, cmdPrefix) {
-			var cmdBinary string
-			if cmdPrefix == "" {
-				cmdBinary = binary
-			} else {
-				cmdBinary = strings.TrimPrefix(binary, cmdPrefix)
-			}
-			cmdBinaries = append(cmdBinaries, cmdBinary)
-		} else {
-			PrintYellow(fmt.Sprintf("Binary %s does not have a valid prefix. Skipping...", binary))
+	if len(serviceTargets) > 0 {
+		PrintBlue(fmt.Sprintf("Compiling cmd binaries for %s...", platform))
+		_, err := compileDir(buildOpt, Paths.Cmd, Paths.OutputBinServicePath, platform, serviceTargets)
+		if err != nil {
+			return err
 		}
 	}
 
-	PrintBlue(fmt.Sprintf("Cmd binaries: %v", cmdBinaries))
-	PrintBlue(fmt.Sprintf("Tools binaries: %v", toolsBinaries))
-
-	var cmdCompiledDirs []string
-	var toolsCompiledDirs []string
-
-	if len(cmdBinaries) > 0 {
-		PrintBlue(fmt.Sprintf("Compiling cmd binaries for %s...", platform))
-		cmdCompiledDirs = compileDir(buildOpt, filepath.Join(Paths.Root, Paths.SrcDir), Paths.OutputBinPath, platform, cmdBinaries)
-	}
-
-	if len(toolsBinaries) > 0 {
+	if len(toolTargets) > 0 {
 		PrintBlue(fmt.Sprintf("Compiling tools binaries for %s...", platform))
-		toolsCompiledDirs = compileDir(buildOpt, filepath.Join(Paths.Root, Paths.ToolsDir), Paths.OutputBinToolPath, platform, toolsBinaries)
+		_, err := compileDir(buildOpt, Paths.Tools, Paths.OutputBinToolPath, platform, toolTargets)
+		if err != nil {
+			return err
+		}
 	}
 
-	createStartConfigYML(cmdCompiledDirs, toolsCompiledDirs)
+	return nil
 }
 
-func compileDir(buildOpt *BuildOptions, sourceDir, outputBase, platform string, compileBinaries []string) []string {
+func compileDir(buildOpt *BuildOptions, sourceDir, outputBase, platform string, compileTargets []string) ([]string, error) {
 	releaseEnabled := buildOpt.GetRelease()
 	compressEnabled := buildOpt.GetCompress()
 	cgoEnabled := buildOpt.GetCgoEnabled()
@@ -96,21 +69,26 @@ func compileDir(buildOpt *BuildOptions, sourceDir, outputBase, platform string, 
 
 	if info, err := os.Stat(sourceDir); err != nil {
 		if os.IsNotExist(err) {
-			return nil
+			return nil, nil
 		}
-		fmt.Printf("Failed read directory %s: %v\n", sourceDir, err)
-		os.Exit(1)
+		PrintErr(fmt.Errorf("failed read directory %s: %w", sourceDir, err))
+		return nil, err
 	} else if !info.IsDir() {
-		fmt.Printf("Failed %s is not dir\n", sourceDir)
-		os.Exit(1)
+		err := fmt.Errorf("%s is not dir", sourceDir)
+		PrintErr(fmt.Errorf("failed %w", err))
+		return nil, err
 	}
 
-	targetOS, targetArch := strings.Split(platform, "_")[0], strings.Split(platform, "_")[1]
+	platformParts := strings.SplitN(platform, "_", 2)
+	if len(platformParts) != 2 {
+		return nil, fmt.Errorf("invalid platform format: %s", platform)
+	}
+	targetOS, targetArch := platformParts[0], platformParts[1]
 	outputDir := filepath.Join(outputBase, targetOS, targetArch)
 
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
-		fmt.Printf("Failed to create directory %s: %v\n", outputDir, err)
-		os.Exit(1)
+		PrintErr(fmt.Errorf("failed to create directory %s: %w", outputDir, err))
+		return nil, err
 	}
 
 	cpuNum := runtime.GOMAXPROCS(0)
@@ -127,21 +105,20 @@ func compileDir(buildOpt *BuildOptions, sourceDir, outputBase, platform string, 
 	if cpuNum < 1 {
 		cpuNum = 1
 	}
-	if len(compileBinaries) < cpuNum {
-		cpuNum = len(compileBinaries)
+	if len(compileTargets) < cpuNum {
+		cpuNum = len(compileTargets)
 	}
 	PrintGreen(fmt.Sprintf("The number of concurrent compilations is %d", cpuNum))
 
-	task := make(chan int, cpuNum)
-	go func() {
-		for i := range compileBinaries {
-			task <- i
-		}
-		close(task)
-	}()
+	task := make(chan int, len(compileTargets))
+	for i := range compileTargets {
+		task <- i
+	}
+	close(task)
 
-	res := make(chan string, 1)
-	running := int64(cpuNum)
+	res := make(chan string, len(compileTargets))
+	errCh := make(chan error, cpuNum)
+	var wg sync.WaitGroup
 
 	env := map[string]string{
 		"GOOS":   targetOS,
@@ -151,28 +128,15 @@ func compileDir(buildOpt *BuildOptions, sourceDir, outputBase, platform string, 
 		env["CGO_ENABLED"] = cgoEnabled
 	}
 
-	baseDirAbs, err := filepath.Abs(Paths.Root)
-	if err != nil {
-		PrintRed(fmt.Sprintf("Failed to get absolute path for root: %v", err))
-		os.Exit(1)
-	}
-
 	for i := 0; i < cpuNum; i++ {
-		go func() {
-			defer func() {
-				if atomic.AddInt64(&running, -1) == 0 {
-					close(res)
-				}
-			}()
-
+		wg.Go(func() {
 			for index := range task {
-				originalDir := baseDirAbs
-
-				binaryPath := filepath.Join(sourceDir, compileBinaries[index])
-				path, err := util.FindMainGoFile(binaryPath)
+				targetPath := filepath.Join(sourceDir, compileTargets[index])
+				path, err := util.FindMainGoFile(targetPath)
 				if err != nil {
-					PrintYellow(fmt.Sprintf("Failed to walk through binary path %s: %v", binaryPath, err))
-					os.Exit(1)
+					PrintYellow(fmt.Sprintf("Failed to walk through build target %s: %v", targetPath, err))
+					errCh <- err
+					return
 				}
 				if path == "" {
 					continue
@@ -192,18 +156,13 @@ func compileDir(buildOpt *BuildOptions, sourceDir, outputBase, platform string, 
 					PrintBlue(fmt.Sprintf("Found go.mod at: %s", goModDir))
 				}
 
-				if err := os.Chdir(goModDir); err != nil {
-					PrintRed(fmt.Sprintf("Failed to change directory to %s: %v", goModDir, err))
-					os.Chdir(originalDir)
-					continue
-				}
-
 				outputPath := filepath.Join(outputDir, outputFileName)
 
 				relPath, err := filepath.Rel(goModDir, path)
 				if err != nil {
-					PrintRed(fmt.Sprintf("Failed to get relative path: %v", err))
-					os.Exit(1)
+					PrintErr(fmt.Errorf("failed to get relative path: %w", err))
+					errCh <- err
+					return
 				}
 
 				buildTarget := relPath
@@ -217,20 +176,32 @@ func compileDir(buildOpt *BuildOptions, sourceDir, outputBase, platform string, 
 				}
 				buildArgs = append(buildArgs, buildTarget)
 
-				err = RunWithPriority(PriorityLow, env, "go", buildArgs...)
-
-				os.Chdir(originalDir)
+				err = NewCmd("go").
+					WithArgs(buildArgs...).
+					WithDir(goModDir).
+					WithEnv(env).
+					WithPriority(priority.Low).
+					WithStdout(GetStdoutInnerLogWriter()).
+					WithStderr(GetStderrInnerLogWriter()).
+					Run()
 
 				if err != nil {
-					PrintRed("Compilation aborted. " + fmt.Sprintf("failed to compile %s for %s: %v", dirName, platform, err))
-					os.Exit(1)
+					err = fmt.Errorf("failed to compile %s for %s: %w", dirName, platform, err)
+					PrintErr(fmt.Errorf("compilation aborted: %w", err))
+					errCh <- err
+					return
 				}
 
 				PrintGreen(fmt.Sprintf("Successfully compiled. dir: %s for platform: %s binary: %s", dirName, platform, outputFileName))
 
 				if compressEnabled {
 					PrintBlue(fmt.Sprintf("Compressing %s with UPX...", outputFileName))
-					if err := RunWithPriority(PriorityLow, nil, "upx", "--lzma", outputPath); err != nil {
+					cmd := NewCmd("upx").
+						WithArgs("--lzma", outputPath).
+						WithPriority(priority.Low).
+						WithStdout(GetStdoutInnerLogWriter()).
+						WithStderr(GetStderrInnerLogWriter())
+					if err := cmd.Run(); err != nil {
 						PrintYellow(fmt.Sprintf("UPX compression failed for %s (non-fatal): %v", outputFileName, err))
 					} else {
 						PrintGreen(fmt.Sprintf("Successfully compressed with UPX: %s", outputFileName))
@@ -239,41 +210,57 @@ func compileDir(buildOpt *BuildOptions, sourceDir, outputBase, platform string, 
 
 				res <- dirName
 			}
-		}()
+		})
 	}
+	go func() {
+		wg.Wait()
+		close(res)
+		close(errCh)
+	}()
 
-	compiledDirs := make([]string, 0, len(compileBinaries))
+	compiledDirs := make([]string, 0, len(compileTargets))
 	for str := range res {
 		compiledDirs = append(compiledDirs, str)
 	}
-	return compiledDirs
+	for err := range errCh {
+		if err != nil {
+			return compiledDirs, err
+		}
+	}
+	return compiledDirs, nil
 }
 
-func createStartConfigYML(cmdDirs, toolsDirs []string) {
+func createStartConfigYML(serviceTargets, toolTargets []string) error {
 	configPath := filepath.Join(Paths.Root, StartConfigFile)
-
 	if _, err := os.Stat(configPath); !os.IsNotExist(err) {
 		PrintBlue("start-config.yml already exists, skipping creation.")
-		return
+		return nil
 	}
 
-	var content strings.Builder
-	content.WriteString("serviceBinaries:\n")
-	for _, dir := range cmdDirs {
-		content.WriteString(fmt.Sprintf("  %s: 1\n", dir))
+	services := make(map[string]int, len(serviceTargets))
+	for _, target := range serviceTargets {
+		services[filepath.Base(target)] = 1
 	}
-	content.WriteString("toolBinaries:\n")
-	for _, dir := range toolsDirs {
-		content.WriteString(fmt.Sprintf("  - %s\n", dir))
+	tools := make([]string, 0, len(toolTargets))
+	for _, target := range toolTargets {
+		tools = append(tools, filepath.Base(target))
 	}
-	content.WriteString("maxFileDescriptors: 10000\n")
 
-	err := os.WriteFile(configPath, []byte(content.String()), 0644)
+	content, err := yaml.Marshal(StartConfig{
+		Services:           services,
+		Tools:              tools,
+		MaxFileDescriptors: 10000,
+	})
 	if err != nil {
-		PrintRed("Failed to create start-config.yml: " + err.Error())
-		return
+		return fmt.Errorf("failed to marshal start config: %w", err)
+	}
+
+	err = os.WriteFile(configPath, content, 0644)
+	if err != nil {
+		return fmt.Errorf("failed to create start-config.yml: %w", err)
 	}
 	PrintGreen("start-config.yml created successfully.")
+	return nil
 }
 
 func ResolveBuildOptions(codeOpt *BuildOptions, envOpt *BuildOptions) *BuildOptions {
@@ -295,38 +282,24 @@ func ResolveBuildOptions(codeOpt *BuildOptions, envOpt *BuildOptions) *BuildOpti
 	}
 }
 
-func getBinaries(binaries []string) []string {
-	if len(binaries) > 0 {
-		return resolveRequestedBinaries(binaries)
+func resolveCompileTargets(services, tools []string) ([]string, []string) {
+	if len(services) > 0 || len(tools) > 0 {
+		return resolveRequestedTargets(services, tools)
 	}
 
-	type binarySource struct {
-		baseDir string
-		prefix  string
+	serviceTargets, err := discoverBuildTargets(Paths.Cmd)
+	if err != nil {
+		PrintYellow(fmt.Sprintf("Failed to glob pattern %s: %v", Paths.Cmd, err))
+	}
+	toolTargets, err := discoverBuildTargets(Paths.Tools)
+	if err != nil {
+		PrintYellow(fmt.Sprintf("Failed to glob pattern %s: %v", Paths.Tools, err))
 	}
 
-	sources := []binarySource{
-		{baseDir: filepath.Join(Paths.Root, Paths.SrcDir), prefix: normalizedSourcePrefix(Paths.SrcDir)},
-		{baseDir: filepath.Join(Paths.Root, Paths.ToolsDir), prefix: normalizedSourcePrefix(Paths.ToolsDir)},
-	}
-
-	var allBinaries []string
-	for _, source := range sources {
-		dirs, err := getSubDirectoriesBFS(source.baseDir)
-		if err != nil {
-			PrintYellow(fmt.Sprintf("Failed to glob pattern %s: %v", source.baseDir, err))
-			continue
-		}
-
-		for _, dir := range dirs {
-			allBinaries = append(allBinaries, withSourcePrefix(source.prefix, dir))
-		}
-	}
-
-	return allBinaries
+	return serviceTargets, toolTargets
 }
 
-func getSubDirectoriesBFS(baseDir string) ([]string, error) {
+func discoverBuildTargets(baseDir string) ([]string, error) {
 	entries, err := os.ReadDir(baseDir)
 	if err != nil {
 		return nil, err
@@ -334,7 +307,7 @@ func getSubDirectoriesBFS(baseDir string) ([]string, error) {
 
 	queue := make([]string, 0, len(entries))
 	for _, entry := range entries {
-		if !entry.IsDir() || util.IsExcludedBinaryDir(entry.Name()) {
+		if !entry.IsDir() || util.IsExcludedSourceDir(entry.Name()) {
 			continue
 		}
 		queue = append(queue, filepath.Join(baseDir, entry.Name()))
@@ -363,7 +336,7 @@ func getSubDirectoriesBFS(baseDir string) ([]string, error) {
 				continue
 			}
 			name := child.Name()
-			if util.IsExcludedBinaryDir(name) {
+			if util.IsExcludedSourceDir(name) {
 				PrintYellow(fmt.Sprintf("Skipping excluded directory: %s", name))
 				continue
 			}
@@ -374,38 +347,28 @@ func getSubDirectoriesBFS(baseDir string) ([]string, error) {
 	return subDirs, nil
 }
 
-func resolveRequestedBinaries(binaries []string) []string {
-	var resolved []string
-	for _, binary := range binaries {
-		if path, found := isCmdBinary(binary); found {
-			resolved = append(resolved, path)
-			continue
+func resolveRequestedTargets(services, tools []string) ([]string, []string) {
+	var serviceTargets, toolTargets []string
+	for _, service := range services {
+		if path, found := findTargetByName(Paths.Cmd, service); found {
+			serviceTargets = append(serviceTargets, path)
+		} else {
+			PrintYellow(fmt.Sprintf("Service %s not found in source directory %s. Skipping...", service, Paths.Cmd))
 		}
-		if path, found := isToolBinary(binary); found {
-			resolved = append(resolved, path)
-			continue
+	}
+	for _, tool := range tools {
+		if path, found := findTargetByName(Paths.Tools, tool); found {
+			toolTargets = append(toolTargets, path)
+		} else {
+			PrintYellow(fmt.Sprintf("Tool %s not found in source directory %s. Skipping...", tool, Paths.Tools))
 		}
-		PrintYellow(fmt.Sprintf("Binary %s not found in cmd (%s) or tools (%s) directories. Skipping...", binary, Paths.SrcDir, Paths.ToolsDir))
 	}
-	fmt.Println("Resolved binaries:", resolved)
-	return resolved
+	PrintBlue(fmt.Sprintf("Resolved service targets: %v", serviceTargets))
+	PrintBlue(fmt.Sprintf("Resolved tool targets: %v", toolTargets))
+	return serviceTargets, toolTargets
 }
 
-func normalizedSourcePrefix(prefix string) string {
-	if prefix == "." {
-		return ""
-	}
-	return prefix
-}
-
-func withSourcePrefix(prefix, relPath string) string {
-	if prefix == "" {
-		return relPath
-	}
-	return filepath.Join(prefix, relPath)
-}
-
-func findBinaryPath(baseDir, binaryName string) (string, bool) {
+func findTargetByName(baseDir, targetName string) (string, bool) {
 	entries, err := os.ReadDir(baseDir)
 	if err != nil {
 		PrintYellow(fmt.Sprintf("Failed to read directory %s: %v", baseDir, err))
@@ -417,7 +380,7 @@ func findBinaryPath(baseDir, binaryName string) (string, bool) {
 			continue
 		}
 		subDirPath := filepath.Join(baseDir, entry.Name())
-		if entry.Name() == binaryName {
+		if entry.Name() == targetName && util.ContainsMainGo(subDirPath) {
 			relativePath, err := filepath.Rel(baseDir, subDirPath)
 			if err != nil {
 				PrintYellow(fmt.Sprintf("Failed to get relative path for %s: %v", subDirPath, err))
@@ -425,29 +388,9 @@ func findBinaryPath(baseDir, binaryName string) (string, bool) {
 			}
 			return relativePath, true
 		}
-		if path, found := findBinaryPath(subDirPath, binaryName); found {
+		if path, found := findTargetByName(subDirPath, targetName); found {
 			return filepath.Join(entry.Name(), path), true
 		}
-	}
-	return "", false
-}
-
-func isCmdBinary(binary string) (string, bool) {
-	path, found := findBinaryPath(filepath.Join(Paths.Root, Paths.SrcDir), binary)
-	if found {
-		if Paths.SrcDir == "." {
-			return path, true
-		}
-
-		return filepath.Join(Paths.SrcDir, path), true
-	}
-	return "", false
-}
-
-func isToolBinary(binary string) (string, bool) {
-	path, found := findBinaryPath(filepath.Join(Paths.Root, Paths.ToolsDir), binary)
-	if found {
-		return filepath.Join(Paths.ToolsDir, path), true
 	}
 	return "", false
 }

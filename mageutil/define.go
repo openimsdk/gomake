@@ -1,9 +1,10 @@
 package mageutil
 
 import (
+	"bytes"
 	"fmt"
 	"os"
-	"runtime"
+	"path/filepath"
 
 	"gopkg.in/yaml.v3"
 )
@@ -13,47 +14,50 @@ const (
 )
 
 var (
-	serviceBinaries    map[string]int
-	toolBinaries       []string
-	MaxFileDescriptors int
+	startConfig StartConfig
 )
 
-type Config struct {
-	ServiceBinaries    map[string]int `yaml:"serviceBinaries"`
-	ToolBinaries       []string       `yaml:"toolBinaries"`
+type StartConfig struct {
+	Services           map[string]int `yaml:"services"`
+	Tools              []string       `yaml:"tools"`
 	MaxFileDescriptors int            `yaml:"maxFileDescriptors"`
 }
 
-func InitForSSC() {
-	yamlFile, err := os.ReadFile(StartConfigFile)
+func LoadStartConfig() error {
+	yamlFile, err := os.ReadFile(filepath.Join(Paths.Root, StartConfigFile))
 	if err != nil {
-		fmt.Printf("error reading YAML file: %v", err)
-		os.Exit(1)
+		return fmt.Errorf("error reading YAML file: %w", err)
 	}
 
-	var config Config
-	err = yaml.Unmarshal(yamlFile, &config)
-	if err != nil {
-		fmt.Printf("error unmarshalling YAML: %v", err)
-		os.Exit(1)
-	}
-
-	adjustedBinaries := make(map[string]int)
-	for binary, count := range config.ServiceBinaries {
-		if runtime.GOOS == "windows" {
-			binary += ".exe"
+	var cfg StartConfig
+	decoder := yaml.NewDecoder(bytes.NewReader(yamlFile))
+	decoder.KnownFields(true)
+	if err = decoder.Decode(&cfg); err != nil {
+		PrintYellow("current start-config format not detected, trying legacy format")
+		cfg, err = loadLegacyStartConfig(yamlFile)
+		if err != nil {
+			return fmt.Errorf("error unmarshalling YAML: %w", err)
 		}
-		adjustedBinaries[binary] = count
 	}
 
-	var adjustedToolsBinaries []string
-	for _, tool := range config.ToolBinaries {
-		if runtime.GOOS == "windows" {
-			tool += ".exe"
-		}
-		adjustedToolsBinaries = append(adjustedToolsBinaries, tool)
+	startConfig = cfg
+	return nil
+}
+
+func loadLegacyStartConfig(yamlFile []byte) (StartConfig, error) {
+	var cfg struct {
+		Services           map[string]int `yaml:"serviceBinaries"`
+		Tools              []string       `yaml:"toolBinaries"`
+		MaxFileDescriptors int            `yaml:"maxFileDescriptors"`
 	}
-	serviceBinaries = adjustedBinaries
-	toolBinaries = adjustedToolsBinaries
-	MaxFileDescriptors = config.MaxFileDescriptors
+	decoder := yaml.NewDecoder(bytes.NewReader(yamlFile))
+	decoder.KnownFields(true)
+	if err := decoder.Decode(&cfg); err != nil {
+		return StartConfig{}, fmt.Errorf("error unmarshalling legacy YAML: %w", err)
+	}
+	return StartConfig{
+		Services:           cfg.Services,
+		Tools:              cfg.Tools,
+		MaxFileDescriptors: cfg.MaxFileDescriptors,
+	}, nil
 }
