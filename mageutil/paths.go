@@ -76,14 +76,21 @@ func NewPathConfig(opts *PathOptions) (*PathConfig, error) {
 	// Determine root directory
 	var rootDir string
 	if opts != nil && opts.RootDir != nil {
-		// rootDir = *opts.RootDir
-		rootDir, _ = filepath.Abs(*opts.RootDir)
+		rootDir = *opts.RootDir
 	} else {
 		currentDir, err := os.Getwd()
 		if err != nil {
 			return nil, fmt.Errorf("error getting current directory: %w", err)
 		}
 		rootDir = currentDir
+	}
+	rootDir, err := filepath.Abs(rootDir)
+	if err != nil {
+		return nil, fmt.Errorf("error resolving root directory: %w", err)
+	}
+	rootDir, err = filepath.EvalSymlinks(rootDir)
+	if err != nil {
+		return nil, fmt.Errorf("error resolving root directory symlinks: %w", err)
 	}
 
 	// Determine source directories
