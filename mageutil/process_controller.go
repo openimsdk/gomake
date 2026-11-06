@@ -55,8 +55,8 @@ func StartServices(services []string) error {
 			cmd := NewCmd(binaryPath).
 				WithArgs(args...).
 				WithDir(Paths.OutputHostBinService).
-				WithStdout(GetSharedLogFileWithoutError()).
-				WithStderr(GetSharedLogFileWithoutError())
+				WithStdout(defaultStdout).
+				WithStderr(defaultStderr)
 			PrintBlue(fmt.Sprintf("Starting %s", cmd.String()))
 			if err := cmd.Start(); err != nil {
 				return fmt.Errorf("failed to start service %s with args %v: %v", binaryPath, args, err)
@@ -97,8 +97,8 @@ func StartTools(tools []string) error {
 		cmd := NewCmd(toolFullPath).
 			WithArgs("-c", configPath).
 			WithDir(Paths.OutputHostBinTool).
-			WithStdout(GetSharedLogFileWithoutError()).
-			WithStderr(GetSharedLogFileWithoutError())
+			WithStdout(GetStdoutInnerLogWriter()).
+			WithStderr(GetStderrInnerLogWriter())
 		PrintBlue(fmt.Sprintf("Starting %s", cmd.String()))
 
 		if err := cmd.Run(); err != nil {

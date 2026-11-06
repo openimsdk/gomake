@@ -46,6 +46,7 @@ func StopAndCheckServices() error {
 
 func ensureAllServicesStopped() error {
 	const maxAttempts = 15
+	maxWait := time.Duration(maxAttempts-1) * checkDelay
 	var err error
 	for i := range maxAttempts {
 		err = CheckServicesStopped()
@@ -58,7 +59,7 @@ func ensureAllServicesStopped() error {
 			time.Sleep(checkDelay)
 		}
 	}
-	return fmt.Errorf("already waited for %d seconds, some services have still not stopped", maxAttempts)
+	return fmt.Errorf("already waited for %v, some services have still not stopped", maxWait)
 }
 
 func StartToolsAndServices(tools []string, services []string, pathOpts *PathOptions) error {

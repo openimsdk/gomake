@@ -102,6 +102,7 @@ func GetSharedLogFileWithoutError() *os.File {
 	return logFile
 }
 
+// GetStdoutInnerLogWriter WARN: invalid when gomake exit
 func GetStdoutInnerLogWriter() io.Writer {
 	return util.MultiWriter(
 		util.WriterFunc(func(p []byte) (n int, err error) { return writeConsoleMessage(defaultStdout, string(p)) }),
@@ -109,6 +110,7 @@ func GetStdoutInnerLogWriter() io.Writer {
 	)
 }
 
+// GetStderrInnerLogWriter WARN: invalid when gomake exit
 func GetStderrInnerLogWriter() io.Writer {
 	return util.MultiWriter(
 		util.WriterFunc(func(p []byte) (n int, err error) { return writeConsoleMessage(defaultStderr, string(p)) }),
